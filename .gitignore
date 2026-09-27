@@ -9,3 +9,9 @@ wheels/
 # Virtual environments
 .venv
 *.env
+.ruff_cache
+# Local Pi runtime state
+.atl/
+.zed/
+.pytest_cache/
+odd/
