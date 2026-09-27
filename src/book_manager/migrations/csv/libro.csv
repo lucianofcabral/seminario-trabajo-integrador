@@ -1,0 +1,31 @@
+id,isbn,titulo,autor,editorial_id,genero_id
+1,9780306406157,El eco del silencio,Marina Solís,1,1
+2,9781234567897,Sombras en la niebla,Diego Ferrari,2,2
+3,9780451524935,Estación Marte 7,Laura Kim,3,3
+4,9781408855652,El reino de las cenizas,Tomás Beltrán,4,4
+5,9780141439600,Cartas al mar,Valentina Ríos,5,5
+6,9780062315007,El último testigo,Andrés Molina,6,6
+7,9780307474278,La cuenta regresiva,Sofía Nardone,7,7
+8,9780553380163,Vida de un forastero,Ricardo Peña,8,8
+9,9780679783268,Pensamientos dispersos,Camila Duarte,9,9
+10,9780679732761,Versos de otoño,Julián Esparza,10,10
+11,9780743273565,El jardín olvidado,Marina Solís,1,10
+12,9780345391803,La casa que gritaba,Diego Ferrari,2,9
+13,9780765348281,Colonia Andrómeda,Laura Kim,3,8
+14,9780765326355,El dragón de hielo,Tomás Beltrán,4,7
+15,9780061120084,Bajo el mismo cielo,Valentina Ríos,5,6
+16,9780316069359,El expediente perdido,Andrés Molina,6,5
+17,9780385504201,Doce horas para morir,Sofía Nardone,7,4
+18,9780679644777,Memorias de un náufrago,Ricardo Peña,8,3
+19,9780140449266,Fragmentos del pensamiento,Camila Duarte,9,2
+20,9780156012195,El río y la ceniza,Julián Esparza,10,1
+21,9780307387899,La ciudad invisible,Marina Solís,2,1
+22,9780307949486,El sótano de Meridian,Diego Ferrari,3,2
+23,9780765356150,Órbita rota,Alberto,4,3
+24,9780756404079,La espada del norte,Tomás Beltrán,5,4
+25,9780743299573,Un verano en Toscana,Valentina Ríos,6,5
+26,9780312364815,El informante silencioso,Andrés Molina,7,6
+27,9780345803481,Cuenta atrás en Berlín,Sofía Nardone,8,7
+28,9780679601886,El hombre que caminó solo,Ricardo Peña,9,8
+29,9780679751818,Apuntes sobre la nada,Camila Duarte,10,9
+30,9780156030472,Hojas al viento,Julián Esparza,1,10
