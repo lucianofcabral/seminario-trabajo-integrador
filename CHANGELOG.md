@@ -2,6 +2,11 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 01]
+
+- Versiones mínimas de dependencias más bajas, para usar las que ya trae Colab.
+- `uv.lock` regenerado (quita `pycountries`); tests verificados en Python 3.12.
+
 ## [Ejercicio 07]
 
 - Punto de entrada que abre la consola.

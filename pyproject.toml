@@ -5,9 +5,9 @@ description = "Gestor de libros por terminal con almacenamiento en CSV."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "babel>=2.18.0",
-    "pycountry>=26.2.16",
-    "pydantic[email]>=2.13.5",
+    "babel>=2.12",
+    "pycountry>=22.3",
+    "pydantic[email]>=2.5",
 ]
 
 [project.scripts]
