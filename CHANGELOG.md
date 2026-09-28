@@ -4,6 +4,10 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 
 ## [Ejercicio 01]
 
+- Se quita el notebook del repositorio: la entrega se arma en Colab.
+
+## [Ejercicio 01]
+
 - Notebook de entrega `01_Book_Manager_Grupo_XX.ipynb` sobre la plantilla: celda de librerías, clonado en la rama `Sprint_1` y una celda con título por ejercicio.
 - README con la arquitectura en capas y las reglas de negocio.
 - `.gitignore` ignora los checkpoints de Jupyter.

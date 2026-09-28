@@ -58,7 +58,7 @@ pip install -r requirements.txt
 uv run book-manager
 ```
 
-Desde Python (por ejemplo, en el notebook):
+Desde Python (por ejemplo, desde el notebook de Colab):
 
 ```python
 from book_manager.main import main
@@ -124,7 +124,6 @@ src/book_manager/
   ui/             consola interactiva y formateo de tablas
   main.py         punto de entrada
 tests/            tests con pytest
-01_Book_Manager_Grupo_XX.ipynb   notebook de entrega (Colab)
 ```
 
 La consola usa los servicios, los servicios usan los repositorios y los
