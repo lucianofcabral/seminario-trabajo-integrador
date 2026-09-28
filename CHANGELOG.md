@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 04]
+
+- Capa de lógica en `services.py`: un servicio por entidad sobre su repositorio, con los repositorios inyectables.
+- Integridad referencial: libros, stock, precios y cotizaciones exigen que existan las entidades que referencian.
+- No se pueden borrar géneros, editoriales, monedas ni tipos de cotización en uso; borrar un libro borra su stock y sus precios.
+- Relaciones entre objetos: editorial, género, stock y precios de un libro; libros de un género o de una editorial.
+- `modificar_stock`, `modificar_precio` e histórico de cotizaciones del dólar.
+
 ## [Ejercicio 03]
 
 - Las clases de persistencia CSV pasan de `services.py` a `repositories.py`, junto con sus interfaces.
