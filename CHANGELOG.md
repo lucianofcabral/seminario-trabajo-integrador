@@ -28,6 +28,7 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 ## [Ejercicio 03]
 
 - Interfaces (ABC) de repositorio con CRUD para las ocho entidades.
+- Docstrings en todos los métodos de las interfaces de repositorio.
 
 ## [Ejercicio 02]
 
