@@ -62,7 +62,8 @@ Desde Python (por ejemplo, en el notebook):
 
 ```python
 from book_manager.main import main
-main(import_default_data=False)  # False: usa los CSV existentes sin regenerarlos
+main(import_default_data=False)  # conserva los datos; genera solo los CSV que falten
+main(import_default_data=True)   # regenera todos los datos de ejemplo
 ```
 
 Al arrancar aparece el menú principal con las tablas. Elegís una con su número y
@@ -76,6 +77,15 @@ dentro de cada una tenés:
 
 Las referencias se muestran legibles: al ver un libro ves la editorial y el género
 por nombre, no por id.
+
+## Reglas de negocio
+
+- No se repiten ISBN, códigos de moneda, proveedores, géneros ni tipos de cotización.
+- Un libro necesita una editorial y un género existentes; stock y precios, un libro
+  (y una moneda) existentes; una cotización, un tipo existente.
+- No se puede borrar un género, una editorial, una moneda o un tipo de cotización
+  que esté en uso.
+- Al borrar un libro se borran también su stock y sus precios.
 
 ## Tablas
 
@@ -106,14 +116,19 @@ Los archivos quedan en `src/book_manager/migrations/csv/`.
 
 ```
 src/book_manager/
-  entities/       modelos Pydantic
-  repositories/   interfaces (ABC) de repositorios
-  services/       implementaciones CRUD sobre CSV
-  preload_data/   generación de datos de seed
+  entities/       entidades (Pydantic) con validación al crear y al modificar
+  repositories/   persistencia: interfaces (ABC) e implementación sobre CSV
+  services/       lógica de negocio: validaciones, integridad y relaciones
+  preload_data/   generación de los datos de ejemplo
   migrations/csv/ archivos CSV con los datos
   ui/             consola interactiva y formateo de tablas
   main.py         punto de entrada
+tests/            tests con pytest
+01_Book_Manager_Grupo_XX.ipynb   notebook de entrega (Colab)
 ```
+
+La consola usa los servicios, los servicios usan los repositorios y los
+repositorios leen y escriben los CSV. Cada capa depende solo de la de abajo.
 
 ## Tests
 

@@ -2,6 +2,12 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 01]
+
+- Notebook de entrega `01_Book_Manager_Grupo_XX.ipynb` sobre la plantilla: celda de librerías, clonado en la rama `Sprint_1` y una celda con título por ejercicio.
+- README con la arquitectura en capas y las reglas de negocio.
+- `.gitignore` ignora los checkpoints de Jupyter.
+
 ## [Ejercicio 07]
 
 - `main()` ya no pisa los datos por defecto (`import_default_data=False`); los CSV que falten se generan igual con los datos de ejemplo.
