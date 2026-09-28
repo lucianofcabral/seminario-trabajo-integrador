@@ -2,6 +2,11 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 05]
+
+- Los precios buscan el id del dólar por su código `USD` en lugar de usar el id 145 fijo.
+- Test que verifica que la precarga completa tenga al menos 10 registros por tabla y referencias válidas.
+
 ## [Ejercicio 04]
 
 - Capa de lógica en `services.py`: un servicio por entidad sobre su repositorio, con los repositorios inyectables.

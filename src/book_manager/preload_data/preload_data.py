@@ -514,8 +514,29 @@ def generar_csv_stock(renovar: bool = False) -> None:
     _generar_csv(data=stocks, path=path, renovar=renovar, asignar_id=True)
 
 
+def _id_de_moneda(codigo: str) -> int:
+    """Busca el id de una moneda por su código en el CSV de monedas.
+
+    Args:
+        codigo: Código ISO 4217, p. ej. "USD".
+
+    Returns:
+        El id de la moneda.
+
+    Raises:
+        ValueError: Si la moneda no está en el CSV.
+    """
+    with open(CSV_FOLDER / "moneda.csv", newline="", encoding="utf-8") as f:
+        for fila in csv.DictReader(f):
+            if fila["codigo"] == codigo:
+                return int(fila["id"])
+    raise ValueError(f"No se encontró la moneda {codigo} en moneda.csv")
+
+
 def generar_csv_precio(renovar: bool = False) -> None:
-    """Genera un precio aleatorio en dólares (moneda 145, USD) por libro.
+    """Genera un precio aleatorio en dólares (USD) por libro.
+
+    Necesita que ya exista el CSV de monedas para obtener el id del dólar.
 
     Args:
         renovar: Si se debe regenerar el archivo CSV, incluso si ya existe.
@@ -525,10 +546,11 @@ def generar_csv_precio(renovar: bool = False) -> None:
     if not renovar and path.exists():
         return
 
+    usd_id = _id_de_moneda("USD")
     precios = [
         {
             "libro_id": n,
-            "moneda_id": 145,
+            "moneda_id": usd_id,
             "valor": abs(round(random.normalvariate(mu=75, sigma=50), 2)),
         }
         for n in range(1, 31)
@@ -584,8 +606,11 @@ def generar_csv_cotizacion(renovar: bool = False) -> None:
 def precargar_datos(renovar: bool = True) -> None:
     """Genera todos los CSVs de datos iniciales.
 
+    El orden importa: los precios necesitan que ya existan las monedas.
+
     Args:
         renovar: Si es True, regenera cada CSV aunque ya exista (pisa datos).
+            Si es False, solo crea los que faltan.
     """
 
     generar_csv_monedas(renovar=renovar)
