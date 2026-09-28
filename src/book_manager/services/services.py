@@ -40,8 +40,15 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
         self,
         filepath: Path | str,
         modelo: type[T],
-        unique_fields: tuple[str] | None = None,
-    ):
+        unique_fields: tuple[str, ...] | None = None,
+    ) -> None:
+        """Prepara el repositorio y crea el CSV con su cabecera si no existe.
+
+        Args:
+            filepath: Ruta del archivo CSV.
+            modelo: Clase Pydantic de las entidades que guarda.
+            unique_fields: Campos que, combinados, no se pueden repetir.
+        """
         self._ruta = Path(filepath)
         self._modelo = modelo
         self._campos = [
@@ -58,6 +65,7 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
 
     def leer_todos(self) -> list[T]:
         """Lee todas las entidades del repositorio.
+
         Returns:
             Lista de entidades.
         """
@@ -65,11 +73,14 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
             return [self._modelo.model_validate(fila) for fila in csv.DictReader(f)]
 
     def crear(self, entidad: T) -> T | None:
-        """Crea una nueva entidad en el repositorio.
+        """Crea una nueva entidad en el repositorio y le asigna un id.
+
         Args:
             entidad: Entidad a crear.
+
         Returns:
-            Entidad creada.
+            La entidad creada. Si ya existe una con los mismos campos únicos,
+            no se guarda nada y se devuelve la existente.
         """
         if self._unique_fields:
             for d in self._iterar():
@@ -89,10 +100,12 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
 
     def leer_por_id(self, entidad_id: int) -> T | None:
         """Lee una entidad del repositorio por su ID.
+
         Args:
             entidad_id: ID de la entidad.
+
         Returns:
-            Entidad encontrada.
+            La entidad encontrada, o None si no existe.
         """
         for d in self._iterar():
             if int(d["id"]) == entidad_id:
@@ -101,10 +114,15 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
 
     def actualizar(self, entidad: T) -> T:
         """Actualiza una entidad existente en el repositorio.
+
         Args:
-            entidad: Entidad a actualizar.
+            entidad: Entidad a actualizar, con un id existente.
+
         Returns:
-            Entidad actualizada.
+            La entidad actualizada.
+
+        Raises:
+            ValueError: Si no existe una entidad con ese id.
         """
         filas = []
         encontrado = False
@@ -128,6 +146,14 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
         return self.leer_por_id(entidad.id)
 
     def eliminar(self, entidad_id: int) -> bool:
+        """Elimina una entidad del repositorio por su ID.
+
+        Args:
+            entidad_id: ID de la entidad.
+
+        Returns:
+            True si se eliminó, False si no existía.
+        """
         if self.leer_por_id(entidad_id) is None:
             return False
 
@@ -143,28 +169,32 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
         return True
 
     def _iterar(self) -> Iterator[dict]:
-        """Iterador para uso interno."""
+        """Recorre las filas del CSV como diccionarios de texto."""
         with open(self._ruta, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             yield from reader
 
     def _leer_x_parametros_unico(self, **kwargs) -> T | None:
-        """Lee una entidad por parámetros únicos.
+        """Lee la primera entidad cuyos campos coincidan con los dados.
+
         Args:
-            kwargs: Diccionario de parámetros.
+            kwargs: Pares campo -> valor a comparar por igualdad.
+
         Returns:
-            Entidad que coincide con los parámetros, o None.
+            La entidad que coincide, o None.
         """
         for entidad in self._leer_x_parametros(**kwargs):
             return entidad
         return None
 
     def _leer_x_parametros(self, **kwargs) -> list[T]:
-        """Lee entidades por parámetros.
+        """Lee las entidades cuyos campos coincidan con los dados.
+
         Args:
-            kwargs: Diccionario de parámetros.
+            kwargs: Pares campo -> valor a comparar por igualdad.
+
         Returns:
-            Lista de entidades que coinciden con los parámetros.
+            Lista de entidades que coinciden.
         """
         result: list[T] = []
         for d in self._iterar():
@@ -174,44 +204,52 @@ class RepoCSVBase[T: BaseModel](IRepositorio[T]):
         return result
 
     def _proximo_id(self) -> int:
-        """Calcula el próximo ID disponible."""
+        """Calcula el próximo ID disponible (el mayor existente + 1)."""
         ids = [int(item["id"]) for item in self._iterar()]
         return max(ids) + 1 if ids else 1
 
 
 class RepoMonedaCSV(RepoCSVBase[Moneda], IRepositorioMoneda):
+    """Implementación de CRUD para monedas en CSV."""
+
     ruta: Path = CSV_FOLDER_PATH / "moneda.csv"
     tipo: type[Moneda] = Moneda
-    unique_fields: tuple[str] = ("codigo",)
+    unique_fields: tuple[str, ...] = ("codigo",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_codigo(self, codigo: str) -> Moneda | None:
         """Lee una moneda por código.
+
         Args:
-            codigo: Código de la moneda.
+            codigo: Código de la moneda; se normaliza a mayúsculas.
+
         Returns:
-            Moneda que coincide con el código.
+            La moneda que coincide con el código, o None.
         """
         codigo = codigo.upper().replace(" ", "")
         return self._leer_x_parametros_unico(codigo=codigo)
 
 
 class RepoGeneroCSV(RepoCSVBase[Genero], IRepositorioGenero):
+    """Implementación de CRUD para géneros en CSV."""
+
     ruta: Path = CSV_FOLDER_PATH / "genero.csv"
     tipo: type[Genero] = Genero
-    unique_fields: tuple[str] = ("genero",)
+    unique_fields: tuple[str, ...] = ("genero",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_cadena(self, cadena: str) -> list[Genero]:
         """Lee géneros por cadena.
+
         Args:
-            cadena: Cadena a buscar.
+            cadena: Cadena a buscar, sin distinguir mayúsculas.
+
         Returns:
-            Lista de géneros que coinciden con la cadena.
+            Lista de géneros que contienen la cadena.
         """
         result = []
         for item in self._iterar():
@@ -221,23 +259,26 @@ class RepoGeneroCSV(RepoCSVBase[Genero], IRepositorioGenero):
 
 
 class RepoEditorialCSV(RepoCSVBase[Editorial], IRepositorioEditorial):
-    """Interfaz CRUD para editoriales."""
+    """Implementación de CRUD para editoriales en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "editorial.csv"
     tipo: type[Editorial] = Editorial
-    unique_fields: tuple[str] = ("proveedor",)
+    unique_fields: tuple[str, ...] = ("proveedor",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_parametros(self, kwargs: dict) -> list[Editorial]:
         """Lee editoriales por parámetros.
+
         Args:
-            kwargs: Diccionario de parámetros.
+            kwargs: Pares campo -> valor a comparar por igualdad.
+
         Returns:
             Lista de editoriales que coinciden con los parámetros.
 
-        *Levanta un KeyError si los parámetros son inválidos.*
+        Raises:
+            KeyError: Si algún campo no existe en Editorial.
         """
         x_keys = [k for k in kwargs if k not in self._campos]
         if len(x_keys):
@@ -247,41 +288,58 @@ class RepoEditorialCSV(RepoCSVBase[Editorial], IRepositorioEditorial):
 
     def leer_por_proveedor(self, proveedor: str) -> Editorial | None:
         """Lee una editorial por proveedor.
+
         Args:
             proveedor: Nombre del proveedor.
+
         Returns:
-            Editorial que coincide con el proveedor.
+            La editorial que coincide con el proveedor, o None.
         """
         return self._leer_x_parametros_unico(proveedor=proveedor)
 
 
 class RepoLibroCSV(RepoCSVBase[Libro], IRepositorioLibro):
-    """Interfaz CRUD para libros."""
+    """Implementación de CRUD para libros en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "libro.csv"
     tipo: type[Libro] = Libro
-    unique_fields: tuple[str] = ("isbn",)
+    unique_fields: tuple[str, ...] = ("isbn",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
 
 class RepoStock(RepoCSVBase[Stock], IRepositorioStock):
-    """Interfaz CRUD para stock."""
+    """Implementación de CRUD para stock en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "stock.csv"
     tipo: type[Stock] = Stock
-    unique_fields: tuple[str] = ("libro_id",)
+    unique_fields: tuple[str, ...] = ("libro_id",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_libro_id(self, libro_id: int) -> Stock | None:
-        """Lee un stock por ID de libro."""
+        """Lee el stock de un libro.
+
+        Args:
+            libro_id: ID del libro.
+
+        Returns:
+            El stock del libro, o None.
+        """
         return self._leer_x_parametros_unico(libro_id=libro_id)
 
     def modificar_stock(self, libro_id: int, existencia: int) -> None:
-        """Modifica el stock de un libro."""
+        """Reemplaza la existencia de un libro.
+
+        Args:
+            libro_id: ID del libro.
+            existencia: Nueva cantidad disponible.
+
+        Raises:
+            ValueError: Si el libro no tiene registro de stock.
+        """
         stock = self.leer_por_libro_id(libro_id)
         if stock is None:
             raise ValueError(f"No se encontró stock para el libro {libro_id}")
@@ -290,26 +348,54 @@ class RepoStock(RepoCSVBase[Stock], IRepositorioStock):
 
 
 class RepoPrecioCSV(RepoCSVBase[Precio], IRepositorioPrecio):
-    """Interfaz CRUD para precios."""
+    """Implementación de CRUD para precios en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "precio.csv"
     tipo: type[Precio] = Precio
-    unique_fields: tuple[str] = ("libro_id", "moneda_id")
+    unique_fields: tuple[str, ...] = ("libro_id", "moneda_id")
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_libro_id(self, libro_id: int) -> list[Precio]:
-        """Lee los precios de un libro por su ID."""
+        """Lee los precios de un libro, uno por moneda.
+
+        Args:
+            libro_id: ID del libro.
+
+        Returns:
+            Lista de precios del libro.
+        """
         return self._leer_x_parametros(libro_id=libro_id)
 
     def leer_por_libro_id_moneda_id(
         self, libro_id: int, moneda_id: int
     ) -> Precio | None:
-        """Lee los precios de un libro por su ID y ID de moneda."""
+        """Lee el precio de un libro en una moneda.
+
+        Args:
+            libro_id: ID del libro.
+            moneda_id: ID de la moneda.
+
+        Returns:
+            El precio, o None si no existe.
+        """
         return self._leer_x_parametros_unico(libro_id=libro_id, moneda_id=moneda_id)
 
     def modificar_precio(self, libro_id: int, moneda_id: int, valor: float) -> Precio:
+        """Reemplaza el valor del precio de un libro en una moneda.
+
+        Args:
+            libro_id: ID del libro.
+            moneda_id: ID de la moneda.
+            valor: Nuevo valor.
+
+        Returns:
+            El precio actualizado.
+
+        Raises:
+            ValueError: Si no existe precio para ese libro y moneda.
+        """
         precio = self.leer_por_libro_id_moneda_id(libro_id, moneda_id)
         if precio is None:
             raise ValueError(
@@ -320,16 +406,24 @@ class RepoPrecioCSV(RepoCSVBase[Precio], IRepositorioPrecio):
 
 
 class RepoTipoCotizacionCSV(RepoCSVBase[TipoCotizacion], IRepositorioTipoCotizacion):
-    """Interfaz CRUD para tipos de cotización."""
+    """Implementación de CRUD para tipos de cotización en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "tipo_cotizacion.csv"
     tipo: type[TipoCotizacion] = TipoCotizacion
-    unique_fields: tuple[str] = ("tipo",)
+    unique_fields: tuple[str, ...] = ("tipo",)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_por_tipo(self, tipo: str) -> TipoCotizacion | None:
+        """Lee un tipo de cotización por su nombre.
+
+        Args:
+            tipo: Nombre exacto del tipo, p. ej. "Blue".
+
+        Returns:
+            El tipo de cotización, o None.
+        """
         return self._leer_x_parametros_unico(tipo=tipo)
 
 
@@ -338,15 +432,23 @@ class RepoCotizacionCSV(RepoCSVBase[Cotizacion], IRepositorioCotizacion):
 
     ruta: Path = CSV_FOLDER_PATH / "cotizacion.csv"
     tipo: type[Cotizacion] = Cotizacion
-    unique_fields: tuple[str] = ("tipo_cotizacion_id", "fecha")
+    unique_fields: tuple[str, ...] = ("tipo_cotizacion_id", "fecha")
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self.ruta, self.tipo, self.unique_fields)
 
     def leer_cotizacion(
         self, tipo_cotizacion_id: int, fecha: date
     ) -> Cotizacion | None:
-        """Lee una cotización por tipo de cotización y fecha."""
+        """Lee la cotización de un tipo en una fecha.
+
+        Args:
+            tipo_cotizacion_id: ID del tipo de cotización.
+            fecha: Fecha de la cotización.
+
+        Returns:
+            La cotización, o None si no existe.
+        """
         return self._leer_x_parametros_unico(
             tipo_cotizacion_id=tipo_cotizacion_id, fecha=fecha
         )

@@ -24,6 +24,7 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 - Corrección de búsquedas por clave foránea que comparaban strings contra enteros.
 - Corrección de `modificar_stock` y `modificar_precio`, que creaban el registro sin id.
 - Corrección de la búsqueda por texto de género y de la firma de `leer_cotizacion`.
+- Docstrings y type hints en los repositorios CSV.
 
 ## [Ejercicio 03]
 
