@@ -10,7 +10,7 @@ import pycountry
 from babel.numbers import get_currency_name
 
 from book_manager.rutas import CSV_FOLDER_PATH
-from book_manager.services.csv_config import csv_config
+from book_manager.repositories.csv_config import csv_config
 
 CSV_FOLDER: Path = CSV_FOLDER_PATH
 

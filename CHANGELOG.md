@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 03]
+
+- Las clases de persistencia CSV pasan de `services.py` a `repositories.py`, junto con sus interfaces.
+- Interfaces con los nombres de la consigna: `IRepositorioCotizacionDolar` con `leer_por_tipo_y_fecha` y `leer_historico_por_tipo`, y `leer_por_libro` en stock y precios.
+- `crear` lanza `ValueError` ante un duplicado (antes devolvía el existente sin avisar) y `actualizar` también controla que no se repitan claves.
+- Nuevas consultas para las relaciones: libros por editorial y por género, precios por moneda.
+- `csv_config.py` pasa a `repositories/`.
+
 ## [Ejercicio 02]
 
 - `EntidadBase`: clase base común que valida los datos al crear y al modificar cada atributo (encapsulamiento).

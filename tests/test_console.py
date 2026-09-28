@@ -1,7 +1,7 @@
 """Tests de la interfaz de consola (unidades sin ejecutar el loop de menú)."""
 
 from book_manager.entities.entities import Genero, Libro
-from book_manager.services.services import (
+from book_manager.repositories.repositories import (
     RepoEditorialCSV,
     RepoGeneroCSV,
 )

@@ -4,15 +4,15 @@ from datetime import date
 
 import pytest
 
-from book_manager.entities.entities import Libro
-from book_manager.services.services import (
-    RepoCotizacionCSV,
+from book_manager.entities.entities import Genero, Libro
+from book_manager.repositories.repositories import (
+    RepoCotizacionDolarCSV,
     RepoEditorialCSV,
     RepoGeneroCSV,
     RepoLibroCSV,
     RepoMonedaCSV,
     RepoPrecioCSV,
-    RepoStock,
+    RepoStockCSV,
     RepoTipoCotizacionCSV,
 )
 
@@ -21,11 +21,19 @@ REPOS = [
     RepoGeneroCSV,
     RepoEditorialCSV,
     RepoLibroCSV,
-    RepoStock,
+    RepoStockCSV,
     RepoPrecioCSV,
     RepoTipoCotizacionCSV,
-    RepoCotizacionCSV,
+    RepoCotizacionDolarCSV,
 ]
+
+LIBRO = {
+    "isbn": "9780306406157",
+    "titulo": "El eco del silencio",
+    "autor": "Marina Solís",
+    "editorial_id": 1,
+    "genero_id": 1,
+}
 
 
 @pytest.mark.parametrize("repo_cls", REPOS)
@@ -35,20 +43,20 @@ def test_repo_instancia(repo_cls, repo_factory, tmp_path):
     assert repo is not None
 
 
-def test_leer_por_libro_id_con_int(repo_factory, tmp_path):
+def test_leer_por_libro_con_int(repo_factory, tmp_path):
     """Lookup por FK debe matchear con int, no solo con string (bug #4)."""
     repo = repo_factory(
-        RepoStock,
+        RepoStockCSV,
         tmp_path,
         "stock.csv",
         [{"id": 1, "libro_id": 7, "existencia": 100}],
     )
-    stock = repo.leer_por_libro_id(7)
+    stock = repo.leer_por_libro(7)
     assert stock is not None
     assert stock.existencia == 100
 
 
-def test_leer_por_libro_id_moneda_id_con_int(repo_factory, tmp_path):
+def test_leer_por_libro_y_moneda_con_int(repo_factory, tmp_path):
     """Lookup compuesto por FK numéricas (bug #4)."""
     repo = repo_factory(
         RepoPrecioCSV,
@@ -56,35 +64,9 @@ def test_leer_por_libro_id_moneda_id_con_int(repo_factory, tmp_path):
         "precio.csv",
         [{"id": 1, "libro_id": 3, "moneda_id": 145, "valor": 68.45}],
     )
-    precio = repo.leer_por_libro_id_moneda_id(3, 145)
+    precio = repo.leer_por_libro_y_moneda(3, 145)
     assert precio is not None
     assert precio.valor == 68.45
-
-
-def test_modificar_stock(repo_factory, tmp_path):
-    """modificar_stock debe actualizar el registro existente (bug #5)."""
-    repo = repo_factory(
-        RepoStock,
-        tmp_path,
-        "stock.csv",
-        [{"id": 1, "libro_id": 7, "existencia": 100}],
-    )
-    repo.modificar_stock(7, 55)
-    stock = repo.leer_por_libro_id(7)
-    assert stock.existencia == 55
-
-
-def test_modificar_precio(repo_factory, tmp_path):
-    """modificar_precio debe actualizar el registro existente (bug #5)."""
-    repo = repo_factory(
-        RepoPrecioCSV,
-        tmp_path,
-        "precio.csv",
-        [{"id": 1, "libro_id": 3, "moneda_id": 145, "valor": 68.45}],
-    )
-    repo.modificar_precio(3, 145, 99.99)
-    precio = repo.leer_por_libro_id_moneda_id(3, 145)
-    assert precio.valor == 99.99
 
 
 def test_leer_por_cadena_busca_subcadena(repo_factory, tmp_path):
@@ -99,38 +81,53 @@ def test_leer_por_cadena_busca_subcadena(repo_factory, tmp_path):
     assert [g.genero for g in resultados] == ["Ciencia ficción"]
 
 
-def test_crear_libro_unico_por_isbn(repo_factory, tmp_path):
-    """Crear un libro y rechazar duplicado por ISBN devolviendo el existente."""
+def test_crear_asigna_id_y_persiste(repo_factory, tmp_path):
     repo = repo_factory(RepoLibroCSV, tmp_path, "libro.csv")
 
-    libro = Libro(
-        isbn="9780306406157",
-        titulo="El eco del silencio",
-        autor="Marina Solís",
-        editorial_id=1,
-        genero_id=1,
-    )
-    creado = repo.crear(libro)
-    assert creado is not None
+    creado = repo.crear(Libro(**LIBRO))
+
     assert creado.id == 1
-
-    duplicado = repo.crear(
-        Libro(
-            isbn="9780306406157",
-            titulo="Otro título",
-            autor="Otro Autor",
-            editorial_id=2,
-            genero_id=2,
-        )
-    )
-    assert duplicado.id == 1
-    assert duplicado.titulo == "El eco del silencio"
+    assert repo.leer_por_id(1) == creado
 
 
-def test_leer_cotizacion_por_tipo_y_fecha(repo_factory, tmp_path):
-    """leer_cotizacion debe buscar por tipo_cotizacion_id + fecha (bug #7)."""
+def test_crear_duplicado_lanza_value_error(repo_factory, tmp_path):
+    """Un ISBN repetido se rechaza, como indica la interfaz de la cátedra."""
+    repo = repo_factory(RepoLibroCSV, tmp_path, "libro.csv")
+    repo.crear(Libro(**LIBRO))
+
+    with pytest.raises(ValueError):
+        repo.crear(Libro(**{**LIBRO, "titulo": "Otro título"}))
+    assert len(repo.leer_todos()) == 1
+
+
+def test_actualizar_no_permite_repetir_clave(repo_factory, tmp_path):
+    repo = repo_factory(RepoGeneroCSV, tmp_path, "genero.csv")
+    repo.crear(Genero(genero="Ficción"))
+    terror = repo.crear(Genero(genero="Terror"))
+
+    with pytest.raises(ValueError):
+        repo.actualizar(terror.model_copy(update={"genero": "Ficción"}))
+
+
+def test_actualizar_inexistente_lanza_value_error(repo_factory, tmp_path):
+    repo = repo_factory(RepoGeneroCSV, tmp_path, "genero.csv")
+    with pytest.raises(ValueError):
+        repo.actualizar(Genero(id=99, genero="Terror"))
+
+
+def test_eliminar(repo_factory, tmp_path):
+    repo = repo_factory(RepoGeneroCSV, tmp_path, "genero.csv")
+    genero = repo.crear(Genero(genero="Ficción"))
+
+    assert repo.eliminar(genero.id) is True
+    assert repo.eliminar(genero.id) is False
+    assert repo.leer_todos() == []
+
+
+def test_leer_por_tipo_y_fecha(repo_factory, tmp_path):
+    """Busca por tipo de cotización + fecha (bug #7)."""
     repo = repo_factory(
-        RepoCotizacionCSV,
+        RepoCotizacionDolarCSV,
         tmp_path,
         "cotizacion.csv",
         [
@@ -142,6 +139,21 @@ def test_leer_cotizacion_por_tipo_y_fecha(repo_factory, tmp_path):
             }
         ],
     )
-    cotizacion = repo.leer_cotizacion(2, date(2026, 1, 1))
+    cotizacion = repo.leer_por_tipo_y_fecha(2, date(2026, 1, 1))
     assert cotizacion is not None
     assert cotizacion.valor_pesos == 1534.54
+
+
+def test_leer_historico_por_tipo_ordenado(repo_factory, tmp_path):
+    repo = repo_factory(
+        RepoCotizacionDolarCSV,
+        tmp_path,
+        "cotizacion.csv",
+        [
+            {"id": 1, "tipo_cotizacion_id": 1, "fecha": "2026-01-03", "valor_pesos": 3},
+            {"id": 2, "tipo_cotizacion_id": 2, "fecha": "2026-01-02", "valor_pesos": 2},
+            {"id": 3, "tipo_cotizacion_id": 1, "fecha": "2026-01-01", "valor_pesos": 1},
+        ],
+    )
+    historico = repo.leer_historico_por_tipo(1)
+    assert [c.id for c in historico] == [3, 1]

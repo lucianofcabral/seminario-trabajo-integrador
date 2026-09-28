@@ -15,14 +15,14 @@ from book_manager.entities.entities import (
     Stock,
     TipoCotizacion,
 )
-from book_manager.services.services import (
-    RepoCotizacionCSV,
+from book_manager.repositories.repositories import (
+    RepoCotizacionDolarCSV,
     RepoEditorialCSV,
     RepoGeneroCSV,
     RepoLibroCSV,
     RepoMonedaCSV,
     RepoPrecioCSV,
-    RepoStock,
+    RepoStockCSV,
     RepoTipoCotizacionCSV,
 )
 from book_manager.ui.formatting import render_tabla
@@ -118,7 +118,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Stock",
         singular="stock",
         modelo=Stock,
-        fabrica_repo=RepoStock,
+        fabrica_repo=RepoStockCSV,
         campos=(
             Campo("libro_id", "Libro", "fk", "libro"),
             Campo("existencia", "Existencia", "int"),
@@ -177,7 +177,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Cotizaciones",
         singular="cotización",
         modelo=CotizacionDolar,
-        fabrica_repo=RepoCotizacionCSV,
+        fabrica_repo=RepoCotizacionDolarCSV,
         campos=(
             Campo("tipo_cotizacion_id", "Tipo", "fk", "tipo_cotizacion"),
             Campo("fecha", "Fecha (AAAA-MM-DD)", "fecha"),
@@ -436,11 +436,12 @@ def _crear(tabla: Tabla) -> None:
     except ValidationError as error:
         _mostrar_error_validacion(error)
         return
-    creada = tabla.fabrica_repo().crear(entidad)
-    if creada is None:
-        print("No se pudo guardar.")
-    else:
-        print("Quedó guardado.")
+    try:
+        tabla.fabrica_repo().crear(entidad)
+    except ValueError as error:
+        print(f"No se pudo guardar: {error}")
+        return
+    print("Quedó guardado.")
 
 
 def _editar(tabla: Tabla) -> None:
@@ -485,7 +486,11 @@ def _editar(tabla: Tabla) -> None:
         _mostrar_error_validacion(error)
         return
 
-    repo.actualizar(nueva)
+    try:
+        repo.actualizar(nueva)
+    except ValueError as error:
+        print(f"No se pudo guardar: {error}")
+        return
     print("Quedó guardado.")
 
 
