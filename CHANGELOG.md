@@ -2,6 +2,11 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 07]
+
+- `main()` ya no pisa los datos por defecto (`import_default_data=False`); los CSV que falten se generan igual con los datos de ejemplo.
+- `main(import_default_data=True)` regenera todos los datos de ejemplo.
+
 ## [Ejercicio 06]
 
 - La consola opera a través de los servicios, así las reglas de negocio se aplican también desde el menú.
