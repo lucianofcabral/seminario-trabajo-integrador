@@ -3,16 +3,15 @@ name = "book-manager"
 version = "0.1.0"
 description = "Gestor de libros por terminal con almacenamiento en CSV."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "babel>=2.18.0",
-    "pycountries>=1.2.1",
     "pycountry>=26.2.16",
     "pydantic[email]>=2.13.5",
 ]
 
 [project.scripts]
-book-manager = "book_manager:main"
+book-manager = "book_manager.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]
