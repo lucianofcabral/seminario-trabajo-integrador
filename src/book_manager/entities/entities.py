@@ -3,8 +3,22 @@ from datetime import date
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
+class Libro(BaseModel):
+    """Título del catálogo de la librería.
+
+    Referencia a su editorial y a su género por id.
+    """
+
+    id: int | None = None
+    isbn: str = Field(..., min_length=10, max_length=17, description="ISBN del libro")
+    titulo: str = Field(..., min_length=3, description="Título del libro")
+    autor: str = Field(..., min_length=3, description="Autor del libro")
+    editorial_id: int
+    genero_id: int
+
+
 class Genero(BaseModel):
-    """Genero del libro."""
+    """Categoría literaria a la que pertenece un libro."""
 
     id: int | None = None
     genero: str = Field(..., min_length=3, description="Categoría del género")
@@ -16,6 +30,8 @@ class Genero(BaseModel):
 
 
 class Editorial(BaseModel):
+    """Proveedor o distribuidora que provee los libros a la librería."""
+
     id: int | None = None
     proveedor: str = Field(
         ..., min_length=3, description="Nombre único de la editorial"
@@ -39,37 +55,42 @@ class Editorial(BaseModel):
 
 
 class Stock(BaseModel):
+    """Cantidad disponible de un libro."""
+
     id: int | None = None
     libro_id: int = Field(..., description="ID del libro")
     existencia: int = Field(0, ge=0, description="Cantidad de libros en stock actual")
 
 
-class Libro(BaseModel):
-    id: int | None = None
-    isbn: str = Field(..., min_length=10, max_length=17, description="ISBN del libro")
-    titulo: str = Field(..., min_length=3, description="Título del libro")
-    autor: str = Field(..., min_length=3, description="Autor del libro")
-    editorial_id: int
-    genero_id: int
-
-
 class Moneda(BaseModel):
+    """Moneda en la que se puede expresar un precio (ARS, USD, etc.)."""
+
     id: int | None = None
     codigo: str = Field(
         ...,
         min_length=3,
         max_length=3,
-        description="Código nternacional de la moneda de 3 dígitos.",
+        description="Código internacional de la moneda de 3 dígitos.",
     )
     nombre: str = Field(..., min_length=3, description="Nombre de la moneda")
 
     @field_validator("codigo")
     @classmethod
     def a_mayusculas(cls, v: str) -> str:
+        """Normaliza el código a mayúsculas y sin espacios.
+
+        Args:
+            v: Código ingresado.
+
+        Returns:
+            El código normalizado, p. ej. " usd" -> "USD".
+        """
         return v.upper().replace(" ", "")
 
 
 class Precio(BaseModel):
+    """Valor de un libro expresado en una moneda determinada."""
+
     id: int | None = None
     libro_id: int
     moneda_id: int
@@ -77,6 +98,8 @@ class Precio(BaseModel):
 
 
 class TipoCotizacion(BaseModel):
+    """Tipo de cotización del dólar (Oficial, Blue, MEP, etc.)."""
+
     id: int | None = None
     tipo: str = Field(
         ...,
@@ -86,6 +109,8 @@ class TipoCotizacion(BaseModel):
 
 
 class Cotizacion(BaseModel):
+    """Registro histórico del valor del dólar para un tipo y una fecha."""
+
     id: int | None = None
     tipo_cotizacion_id: int
     fecha: date = Field(..., description="Fecha de la cotización")

@@ -32,6 +32,8 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 ## [Ejercicio 02]
 
 - Entidades Pydantic: Libro, Genero, Editorial, Moneda, TipoCotizacion, Precio, Stock y Cotizacion.
+- `Libro` se define antes que `Genero` y `Editorial`, que lo referencian (compatibilidad con Python 3.12).
+- Docstrings en todas las entidades.
 
 ## [Ejercicio 01]
 
