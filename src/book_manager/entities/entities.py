@@ -1,38 +1,43 @@
 from datetime import date
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
-class Libro(BaseModel):
+class EntidadBase(BaseModel):
+    """Base de todas las entidades del sistema.
+
+    Encapsula el estado de cada objeto: los datos se validan al crearlo y también
+    cada vez que se modifica un atributo, por lo que una entidad nunca queda en un
+    estado inválido. El `id` lo asigna el repositorio al guardarla.
+    """
+
+    model_config = ConfigDict(validate_assignment=True, str_strip_whitespace=True)
+
+    id: int | None = None
+
+
+class Libro(EntidadBase):
     """Título del catálogo de la librería.
 
     Referencia a su editorial y a su género por id.
     """
 
-    id: int | None = None
     isbn: str = Field(..., min_length=10, max_length=17, description="ISBN del libro")
     titulo: str = Field(..., min_length=3, description="Título del libro")
     autor: str = Field(..., min_length=3, description="Autor del libro")
-    editorial_id: int
-    genero_id: int
+    editorial_id: int = Field(..., description="ID de la editorial")
+    genero_id: int = Field(..., description="ID del género")
 
 
-class Genero(BaseModel):
+class Genero(EntidadBase):
     """Categoría literaria a la que pertenece un libro."""
 
-    id: int | None = None
     genero: str = Field(..., min_length=3, description="Categoría del género")
-    libros: list[Libro] = Field(
-        default_factory=list,
-        description="Libros asociados al género",
-        exclude=True,
-    )
 
 
-class Editorial(BaseModel):
+class Editorial(EntidadBase):
     """Proveedor o distribuidora que provee los libros a la librería."""
 
-    id: int | None = None
     proveedor: str = Field(
         ..., min_length=3, description="Nombre único de la editorial"
     )
@@ -40,32 +45,23 @@ class Editorial(BaseModel):
     provincia: str = Field(..., min_length=3, description="Provincia de la editorial")
     localidad: str = Field(..., min_length=3, description="Localidad de la editorial")
     domicilio: str = Field(..., min_length=3, description="Domicilio de la editorial")
-    telefono: str | None = Field(
-        ..., min_length=3, description="Teléfono de la editorial"
-    )
+    telefono: str = Field(..., min_length=3, description="Teléfono de la editorial")
     email: EmailStr = Field(..., description="Email de la editorial")
     responsable: str = Field(
         ..., min_length=3, description="Responsable de la editorial"
     )
-    libros: list[Libro] = Field(
-        default_factory=list,
-        description="Libros asociados a la editorial",
-        exclude=True,
-    )
 
 
-class Stock(BaseModel):
+class Stock(EntidadBase):
     """Cantidad disponible de un libro."""
 
-    id: int | None = None
     libro_id: int = Field(..., description="ID del libro")
     existencia: int = Field(0, ge=0, description="Cantidad de libros en stock actual")
 
 
-class Moneda(BaseModel):
+class Moneda(EntidadBase):
     """Moneda en la que se puede expresar un precio (ARS, USD, etc.)."""
 
-    id: int | None = None
     codigo: str = Field(
         ...,
         min_length=3,
@@ -88,19 +84,19 @@ class Moneda(BaseModel):
         return v.upper().replace(" ", "")
 
 
-class Precio(BaseModel):
+class Precio(EntidadBase):
     """Valor de un libro expresado en una moneda determinada."""
 
-    id: int | None = None
-    libro_id: int
-    moneda_id: int
-    valor: float = Field(..., description="Valor del libro expresado en la moneda")
+    libro_id: int = Field(..., description="ID del libro")
+    moneda_id: int = Field(..., description="ID de la moneda")
+    valor: float = Field(
+        ..., ge=0, description="Valor del libro expresado en la moneda"
+    )
 
 
-class TipoCotizacion(BaseModel):
+class TipoCotizacion(EntidadBase):
     """Tipo de cotización del dólar (Oficial, Blue, MEP, etc.)."""
 
-    id: int | None = None
     tipo: str = Field(
         ...,
         min_length=1,
@@ -108,10 +104,9 @@ class TipoCotizacion(BaseModel):
     )
 
 
-class Cotizacion(BaseModel):
+class CotizacionDolar(EntidadBase):
     """Registro histórico del valor del dólar para un tipo y una fecha."""
 
-    id: int | None = None
-    tipo_cotizacion_id: int
+    tipo_cotizacion_id: int = Field(..., description="ID del tipo de cotización")
     fecha: date = Field(..., description="Fecha de la cotización")
-    valor_pesos: float = Field(..., description="Valor del dolar en la fecha")
+    valor_pesos: float = Field(..., gt=0, description="Valor del dolar en la fecha")

@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 02]
+
+- `EntidadBase`: clase base común que valida los datos al crear y al modificar cada atributo (encapsulamiento).
+- `Cotizacion` pasa a llamarse `CotizacionDolar`, como en la consigna.
+- Se quitan las listas `libros` de `Genero` y `Editorial`, que nunca se completaban; las relaciones se resuelven en los servicios.
+- Validaciones: precio no negativo y cotización mayor a cero.
+- La edición en consola valida todos los cambios juntos antes de aplicarlos.
+
 ## [Ejercicio 01]
 
 - Versiones mínimas de dependencias más bajas, para usar las que ya trae Colab.

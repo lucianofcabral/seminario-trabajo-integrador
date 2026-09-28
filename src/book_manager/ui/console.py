@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from book_manager.entities.entities import (
-    Cotizacion,
+    CotizacionDolar,
     Editorial,
     Genero,
     Libro,
@@ -176,7 +176,7 @@ TABLAS: list[Tabla] = [
         clave="cotizacion",
         etiqueta="Cotizaciones",
         singular="cotización",
-        modelo=Cotizacion,
+        modelo=CotizacionDolar,
         fabrica_repo=RepoCotizacionCSV,
         campos=(
             Campo("tipo_cotizacion_id", "Tipo", "fk", "tipo_cotizacion"),
@@ -469,14 +469,16 @@ def _editar(tabla: Tabla) -> None:
         print("Cancelado.")
         return
 
-    for indice in seleccion:
-        campo = campos[indice - 1]
-        valor = _pedir_campo(campo, getattr(entidad, campo.clave))
-        if valor is not None:
-            setattr(entidad, campo.clave, valor)
-
+    # Los cambios se juntan en un dict y se validan todos juntos al armar la
+    # entidad nueva, así un dato inválido no deja la original a medio modificar.
     datos = {campo.clave: getattr(entidad, campo.clave) for campo in campos}
     datos["id"] = entidad.id
+    for indice in seleccion:
+        campo = campos[indice - 1]
+        valor = _pedir_campo(campo, datos[campo.clave])
+        if valor is not None:
+            datos[campo.clave] = valor
+
     try:
         nueva = tabla.modelo(**datos)
     except ValidationError as error:

@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from book_manager.entities.entities import (
-    Cotizacion,
+    CotizacionDolar,
     Editorial,
     Genero,
     Libro,
@@ -427,11 +427,11 @@ class RepoTipoCotizacionCSV(RepoCSVBase[TipoCotizacion], IRepositorioTipoCotizac
         return self._leer_x_parametros_unico(tipo=tipo)
 
 
-class RepoCotizacionCSV(RepoCSVBase[Cotizacion], IRepositorioCotizacion):
+class RepoCotizacionCSV(RepoCSVBase[CotizacionDolar], IRepositorioCotizacion):
     """Implementación de CRUD para cotización en CSV."""
 
     ruta: Path = CSV_FOLDER_PATH / "cotizacion.csv"
-    tipo: type[Cotizacion] = Cotizacion
+    tipo: type[CotizacionDolar] = CotizacionDolar
     unique_fields: tuple[str, ...] = ("tipo_cotizacion_id", "fecha")
 
     def __init__(self) -> None:
@@ -439,7 +439,7 @@ class RepoCotizacionCSV(RepoCSVBase[Cotizacion], IRepositorioCotizacion):
 
     def leer_cotizacion(
         self, tipo_cotizacion_id: int, fecha: date
-    ) -> Cotizacion | None:
+    ) -> CotizacionDolar | None:
         """Lee la cotización de un tipo en una fecha.
 
         Args:

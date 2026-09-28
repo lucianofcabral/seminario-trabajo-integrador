@@ -4,7 +4,7 @@ from datetime import date
 from pydantic import BaseModel
 
 from book_manager.entities.entities import (
-    Cotizacion,
+    CotizacionDolar,
     Editorial,
     Genero,
     Libro,
@@ -240,13 +240,13 @@ class IRepositorioTipoCotizacion(IRepositorio[TipoCotizacion]):
         ...
 
 
-class IRepositorioCotizacion(IRepositorio[Cotizacion]):
+class IRepositorioCotizacion(IRepositorio[CotizacionDolar]):
     """Interfaz CRUD para cotización."""
 
     @abstractmethod
     def leer_cotizacion(
         self, tipo_cotizacion_id: int, fecha: date
-    ) -> Cotizacion | None:
+    ) -> CotizacionDolar | None:
         """Lee la cotización de un tipo en una fecha.
 
         Args:
@@ -254,6 +254,6 @@ class IRepositorioCotizacion(IRepositorio[Cotizacion]):
             fecha (date): La fecha de la cotización.
 
         Returns:
-            Cotizacion | None: La cotización si se encuentra, None en caso contrario.
+            CotizacionDolar | None: La cotización si se encuentra, None en caso contrario.
         """
         ...
