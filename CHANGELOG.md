@@ -16,6 +16,9 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 
 - Generadores de datos de seed: monedas ISO 4217, géneros, editoriales, libros, stock, precios y cotizaciones.
 - Corrección de esquemas entre modelo y CSV (`existencia`, `tipo_cotizacion_id`, `valor_pesos`).
+- La precarga de datos pasa a `preload_data/preload_data.py` (`precargar_datos`).
+- Diez tipos de cotización (mínimo de 10 registros por clase).
+- Las cotizaciones usan todos los tipos de cotización.
 
 ## [Ejercicio 04]
 
