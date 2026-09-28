@@ -532,12 +532,22 @@ def generar_csv_cotizacion(renovar: bool = False) -> None:
     _generar_csv(data=cotis, path=path, renovar=renovar, asignar_id=True)
 
 
+def migrar_csvs(renovar: bool = True) -> None:
+    """Genera todos los CSVs de datos iniciales.
+
+    Args:
+        renovar: Si es True, regenera cada CSV aunque ya exista (pisa datos).
+    """
+
+    generar_csv_monedas(renovar=renovar)
+    generar_csv_generos(renovar=renovar)
+    generar_csv_editoriales(renovar=renovar)
+    generar_csv_libros(renovar=renovar)
+    generar_csv_stock(renovar=renovar)
+    generar_csv_precio(renovar=renovar)
+    generar_csv_tipo_cotizacion(renovar=renovar)
+    generar_csv_cotizacion(renovar=renovar)
+
+
 if __name__ == "__main__":
-    generar_csv_monedas(renovar=True)
-    generar_csv_generos(renovar=True)
-    generar_csv_editoriales(renovar=True)
-    generar_csv_libros(renovar=True)
-    generar_csv_stock(renovar=True)
-    generar_csv_precio(renovar=True)
-    generar_csv_tipo_cotizacion(renovar=True)
-    generar_csv_cotizacion(renovar=True)
+    migrar_csvs()
