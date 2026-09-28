@@ -15,15 +15,15 @@ from book_manager.entities.entities import (
     Stock,
     TipoCotizacion,
 )
-from book_manager.repositories.repositories import (
-    RepoCotizacionDolarCSV,
-    RepoEditorialCSV,
-    RepoGeneroCSV,
-    RepoLibroCSV,
-    RepoMonedaCSV,
-    RepoPrecioCSV,
-    RepoStockCSV,
-    RepoTipoCotizacionCSV,
+from book_manager.services.services import (
+    ServicioCotizacionDolar,
+    ServicioEditorial,
+    ServicioGenero,
+    ServicioLibro,
+    ServicioMoneda,
+    ServicioPrecio,
+    ServicioStock,
+    ServicioTipoCotizacion,
 )
 from book_manager.ui.formatting import render_tabla
 
@@ -40,13 +40,13 @@ class Campo:
 
 @dataclass(frozen=True)
 class Tabla:
-    """Descriptor de una tabla: modelo, repo, campos y columnas de vista."""
+    """Descriptor de una tabla: modelo, servicio, campos y columnas de vista."""
 
     clave: str
     etiqueta: str  # plural, p.ej. "Libros"
     singular: str  # p.ej. "libro"
     modelo: type[BaseModel]
-    fabrica_repo: Callable[[], Any]
+    fabrica_servicio: Callable[[], Any]
     campos: tuple[Campo, ...]
     columnas: tuple[tuple[str, str], ...]  # (clave, etiqueta) de la vista
     texto: Callable[[Any], str]  # representación para cuando otra tabla la referencia
@@ -58,7 +58,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Libros",
         singular="libro",
         modelo=Libro,
-        fabrica_repo=RepoLibroCSV,
+        fabrica_servicio=ServicioLibro,
         campos=(
             Campo("isbn", "ISBN", "str"),
             Campo("titulo", "Título", "str"),
@@ -81,7 +81,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Editoriales",
         singular="editorial",
         modelo=Editorial,
-        fabrica_repo=RepoEditorialCSV,
+        fabrica_servicio=ServicioEditorial,
         campos=(
             Campo("proveedor", "Proveedor", "str"),
             Campo("pais", "País", "str"),
@@ -108,7 +108,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Géneros",
         singular="género",
         modelo=Genero,
-        fabrica_repo=RepoGeneroCSV,
+        fabrica_servicio=ServicioGenero,
         campos=(Campo("genero", "Género", "str"),),
         columnas=(("id", "ID"), ("genero", "Género")),
         texto=lambda e: e.genero,
@@ -118,7 +118,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Stock",
         singular="stock",
         modelo=Stock,
-        fabrica_repo=RepoStockCSV,
+        fabrica_servicio=ServicioStock,
         campos=(
             Campo("libro_id", "Libro", "fk", "libro"),
             Campo("existencia", "Existencia", "int"),
@@ -135,7 +135,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Precios",
         singular="precio",
         modelo=Precio,
-        fabrica_repo=RepoPrecioCSV,
+        fabrica_servicio=ServicioPrecio,
         campos=(
             Campo("libro_id", "Libro", "fk", "libro"),
             Campo("moneda_id", "Moneda", "fk", "moneda"),
@@ -154,7 +154,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Monedas",
         singular="moneda",
         modelo=Moneda,
-        fabrica_repo=RepoMonedaCSV,
+        fabrica_servicio=ServicioMoneda,
         campos=(
             Campo("codigo", "Código", "str"),
             Campo("nombre", "Nombre", "str"),
@@ -167,7 +167,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Tipos de cotización",
         singular="tipo de cotización",
         modelo=TipoCotizacion,
-        fabrica_repo=RepoTipoCotizacionCSV,
+        fabrica_servicio=ServicioTipoCotizacion,
         campos=(Campo("tipo", "Tipo", "str"),),
         columnas=(("id", "ID"), ("tipo", "Tipo")),
         texto=lambda e: e.tipo,
@@ -177,7 +177,7 @@ TABLAS: list[Tabla] = [
         etiqueta="Cotizaciones",
         singular="cotización",
         modelo=CotizacionDolar,
-        fabrica_repo=RepoCotizacionDolarCSV,
+        fabrica_servicio=ServicioCotizacionDolar,
         campos=(
             Campo("tipo_cotizacion_id", "Tipo", "fk", "tipo_cotizacion"),
             Campo("fecha", "Fecha (AAAA-MM-DD)", "fecha"),
@@ -211,7 +211,7 @@ def _resolver_fk(clave_tabla: str, entidad_id: Any) -> str:
     """Devuelve el texto legible de una referencia (id -> texto de la entidad)."""
     tabla = CATALOGO[clave_tabla]
     try:
-        entidad = tabla.fabrica_repo().leer_por_id(int(entidad_id))
+        entidad = tabla.fabrica_servicio().leer_por_id(int(entidad_id))
     except (TypeError, ValueError):
         return str(entidad_id)
     if entidad is None:
@@ -310,7 +310,7 @@ def _pedir_fk(campo: Campo, actual: Any = None) -> Any:
         El id elegido, o `actual` si no se eligió ninguno.
     """
     tabla = CATALOGO[campo.fk_tabla]
-    opciones = tabla.fabrica_repo().leer_todos()
+    opciones = tabla.fabrica_servicio().leer_todos()
     if not opciones:
         print(f"No hay {tabla.etiqueta.lower()} cargados.")
         return actual
@@ -415,7 +415,7 @@ def _mostrar_error_validacion(error: ValidationError) -> None:
 
 def _ver(tabla: Tabla) -> None:
     """Lista todos los registros de la tabla."""
-    entidades = tabla.fabrica_repo().leer_todos()
+    entidades = tabla.fabrica_servicio().leer_todos()
     if not entidades:
         print("No hay nada cargado.")
         return
@@ -437,7 +437,7 @@ def _crear(tabla: Tabla) -> None:
         _mostrar_error_validacion(error)
         return
     try:
-        tabla.fabrica_repo().crear(entidad)
+        tabla.fabrica_servicio().crear(entidad)
     except ValueError as error:
         print(f"No se pudo guardar: {error}")
         return
@@ -446,8 +446,8 @@ def _crear(tabla: Tabla) -> None:
 
 def _editar(tabla: Tabla) -> None:
     """Edita solo los campos que elija el usuario de un registro existente."""
-    repo = tabla.fabrica_repo()
-    if not repo.leer_todos():
+    servicio = tabla.fabrica_servicio()
+    if not servicio.leer_todos():
         print("No hay nada cargado.")
         return
 
@@ -455,7 +455,7 @@ def _editar(tabla: Tabla) -> None:
     entidad_id = _pedir_id()
     if entidad_id is None:
         return
-    entidad = repo.leer_por_id(entidad_id)
+    entidad = servicio.leer_por_id(entidad_id)
     if entidad is None:
         print("No existe ese id.")
         return
@@ -487,7 +487,7 @@ def _editar(tabla: Tabla) -> None:
         return
 
     try:
-        repo.actualizar(nueva)
+        servicio.actualizar(nueva)
     except ValueError as error:
         print(f"No se pudo guardar: {error}")
         return
@@ -496,8 +496,8 @@ def _editar(tabla: Tabla) -> None:
 
 def _eliminar(tabla: Tabla) -> None:
     """Borra un registro por id, previa confirmación."""
-    repo = tabla.fabrica_repo()
-    if not repo.leer_todos():
+    servicio = tabla.fabrica_servicio()
+    if not servicio.leer_todos():
         print("No hay nada cargado.")
         return
 
@@ -505,16 +505,20 @@ def _eliminar(tabla: Tabla) -> None:
     entidad_id = _pedir_id()
     if entidad_id is None:
         return
-    if repo.leer_por_id(entidad_id) is None:
+    if servicio.leer_por_id(entidad_id) is None:
         print("No existe ese id.")
         return
 
     confirmar = input(f"¿Borrar el registro {entidad_id}? (s/N): ").strip().lower()
-    if confirmar in ("s", "si", "sí"):
-        repo.eliminar(entidad_id)
-        print("Borrado.")
-    else:
+    if confirmar not in ("s", "si", "sí"):
         print("Cancelado.")
+        return
+    try:
+        servicio.eliminar(entidad_id)
+    except ValueError as error:
+        print(f"No se pudo borrar: {error}")
+        return
+    print("Borrado.")
 
 
 def _buscar(tabla: Tabla) -> None:
@@ -523,7 +527,7 @@ def _buscar(tabla: Tabla) -> None:
     if not texto:
         return
 
-    entidades = tabla.fabrica_repo().leer_todos()
+    entidades = tabla.fabrica_servicio().leer_todos()
     texto_l = texto.lower()
     coincidencias = [
         e

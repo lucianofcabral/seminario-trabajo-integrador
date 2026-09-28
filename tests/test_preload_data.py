@@ -44,25 +44,13 @@ def test_generar_csv_tipo_cotizacion_tiene_diez_registros(tmp_path, monkeypatch)
     assert len(filas) >= 10
 
 
-def test_precarga_completa_es_consistente(tmp_path, monkeypatch):
+def test_precarga_completa_es_consistente(tmp_path, monkeypatch, repos_csv):
     """Cada tabla tiene al menos 10 registros y todas las referencias existen."""
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
-    archivos = {
-        repos.RepoLibroCSV: "libro.csv",
-        repos.RepoGeneroCSV: "genero.csv",
-        repos.RepoEditorialCSV: "editorial.csv",
-        repos.RepoMonedaCSV: "moneda.csv",
-        repos.RepoStockCSV: "stock.csv",
-        repos.RepoPrecioCSV: "precio.csv",
-        repos.RepoTipoCotizacionCSV: "tipo_cotizacion.csv",
-        repos.RepoCotizacionDolarCSV: "cotizacion.csv",
-    }
-    for repo_cls, nombre in archivos.items():
-        monkeypatch.setattr(repo_cls, "ruta", tmp_path / nombre)
 
     preload_data.precargar_datos(renovar=True)
 
-    datos = {repo_cls: repo_cls().leer_todos() for repo_cls in archivos}
+    datos = {repo_cls: repo_cls().leer_todos() for repo_cls in repos_csv}
     assert all(len(filas) >= 10 for filas in datos.values())
 
     ids = {repo_cls: {e.id for e in filas} for repo_cls, filas in datos.items()}

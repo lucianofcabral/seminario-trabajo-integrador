@@ -5,6 +5,35 @@ from pathlib import Path
 
 import pytest
 
+from book_manager.repositories import repositories as repos
+
+ARCHIVOS_CSV = {
+    repos.RepoLibroCSV: "libro.csv",
+    repos.RepoGeneroCSV: "genero.csv",
+    repos.RepoEditorialCSV: "editorial.csv",
+    repos.RepoMonedaCSV: "moneda.csv",
+    repos.RepoStockCSV: "stock.csv",
+    repos.RepoPrecioCSV: "precio.csv",
+    repos.RepoTipoCotizacionCSV: "tipo_cotizacion.csv",
+    repos.RepoCotizacionDolarCSV: "cotizacion.csv",
+}
+
+
+@pytest.fixture(autouse=True)
+def csv_temporales(monkeypatch, tmp_path):
+    """Redirige todos los repositorios a CSV temporales.
+
+    Así ningún test lee ni modifica los datos reales de `migrations/csv`.
+    """
+    for repo_cls, nombre in ARCHIVOS_CSV.items():
+        monkeypatch.setattr(repo_cls, "ruta", tmp_path / nombre)
+
+
+@pytest.fixture
+def repos_csv() -> list[type]:
+    """Las clases de todos los repositorios CSV."""
+    return list(ARCHIVOS_CSV)
+
 
 def _escribir_csv(path: Path, filas: list[dict]) -> Path:
     """Escribe un CSV simple con el header derivado de la primera fila."""

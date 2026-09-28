@@ -14,7 +14,6 @@ from book_manager.entities.entities import (
     Stock,
     TipoCotizacion,
 )
-from book_manager.repositories import repositories as repos
 from book_manager.services.services import (
     ServicioCotizacionDolar,
     ServicioEditorial,
@@ -25,24 +24,6 @@ from book_manager.services.services import (
     ServicioStock,
     ServicioTipoCotizacion,
 )
-
-ARCHIVOS = {
-    repos.RepoLibroCSV: "libro.csv",
-    repos.RepoGeneroCSV: "genero.csv",
-    repos.RepoEditorialCSV: "editorial.csv",
-    repos.RepoMonedaCSV: "moneda.csv",
-    repos.RepoStockCSV: "stock.csv",
-    repos.RepoPrecioCSV: "precio.csv",
-    repos.RepoTipoCotizacionCSV: "tipo_cotizacion.csv",
-    repos.RepoCotizacionDolarCSV: "cotizacion.csv",
-}
-
-
-@pytest.fixture(autouse=True)
-def csv_temporales(monkeypatch, tmp_path):
-    """Redirige todos los repositorios CSV a archivos vacíos temporales."""
-    for repo_cls, nombre in ARCHIVOS.items():
-        monkeypatch.setattr(repo_cls, "ruta", tmp_path / nombre)
 
 
 @pytest.fixture

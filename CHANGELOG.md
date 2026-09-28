@@ -2,6 +2,12 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 06]
+
+- La consola opera a través de los servicios, así las reglas de negocio se aplican también desde el menú.
+- Los rechazos (duplicados, referencias inexistentes, registros en uso) se muestran con su motivo en lugar de cortar el programa.
+- Los tests usan siempre CSV temporales y nunca tocan los datos reales.
+
 ## [Ejercicio 05]
 
 - Los precios buscan el id del dólar por su código `USD` en lugar de usar el id 145 fijo.

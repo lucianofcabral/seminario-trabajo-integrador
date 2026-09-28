@@ -4,6 +4,7 @@ from book_manager.entities.entities import Genero, Libro
 from book_manager.repositories.repositories import (
     RepoEditorialCSV,
     RepoGeneroCSV,
+    RepoLibroCSV,
 )
 from book_manager.ui import console
 
@@ -136,3 +137,30 @@ def test_buscar_genero(monkeypatch, tmp_path, capsys, escribir_csv):
     salida = capsys.readouterr().out
     assert "Ciencia ficción" in salida
     assert "2 géneros" in salida
+
+
+def test_eliminar_genero_en_uso_muestra_motivo(monkeypatch, tmp_path, capsys, escribir_csv):
+    """La consola aplica las reglas del servicio y explica por qué no borra."""
+    monkeypatch.setattr(RepoGeneroCSV, "ruta", tmp_path / "genero.csv")
+    monkeypatch.setattr(RepoLibroCSV, "ruta", tmp_path / "libro.csv")
+    escribir_csv(tmp_path / "genero.csv", [{"id": 1, "genero": "Ficción"}])
+    escribir_csv(
+        tmp_path / "libro.csv",
+        [
+            {
+                "id": 1,
+                "isbn": "9780306406157",
+                "titulo": "El eco del silencio",
+                "autor": "Marina Solís",
+                "editorial_id": 1,
+                "genero_id": 1,
+            }
+        ],
+    )
+    respuestas = iter(["1", "s"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(respuestas))
+
+    console._eliminar(console.CATALOGO["genero"])
+
+    assert "No se pudo borrar" in capsys.readouterr().out
+    assert len(RepoGeneroCSV().leer_todos()) == 1
