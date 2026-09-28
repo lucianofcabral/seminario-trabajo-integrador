@@ -3,7 +3,7 @@
 from collections.abc import Iterable
 
 
-def _a_str(valor) -> str:
+def _a_str(valor: object) -> str:
     """Convierte un valor a texto apto para una celda."""
     if valor is None:
         return ""

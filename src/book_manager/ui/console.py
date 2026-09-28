@@ -200,6 +200,7 @@ CATALOGO: dict[str, Tabla] = {t.clave: t for t in TABLAS}
 
 
 def _campo_de(tabla: Tabla, clave: str) -> Campo | None:
+    """Busca en la tabla el campo editable con esa clave, o None si no existe."""
     for campo in tabla.campos:
         if campo.clave == clave:
             return campo
@@ -211,7 +212,7 @@ def _resolver_fk(clave_tabla: str, entidad_id: Any) -> str:
     tabla = CATALOGO[clave_tabla]
     try:
         entidad = tabla.fabrica_repo().leer_por_id(int(entidad_id))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return str(entidad_id)
     if entidad is None:
         return str(entidad_id)
@@ -235,6 +236,7 @@ def _entidad_a_fila(tabla: Tabla, entidad: Any) -> dict:
 
 
 def _contar(tabla: Tabla, n: int) -> str:
+    """Arma el texto de conteo en singular o plural, p. ej. "3 libros"."""
     palabra = tabla.singular if n == 1 else tabla.etiqueta.lower()
     return f"{n} {palabra}"
 
@@ -243,6 +245,7 @@ def _contar(tabla: Tabla, n: int) -> str:
 
 
 def _pedir_opcion(maximo: int) -> int:
+    """Pide una opción de menú hasta que sea un entero entre 0 y `maximo`."""
     while True:
         raw = input("> ").strip()
         try:
@@ -280,6 +283,7 @@ def _pedir_seleccion(maximo: int) -> list[int] | None:
 
 
 def _texto_actual(actual: Any) -> str:
+    """Texto de un valor para mostrarlo como sugerencia entre corchetes."""
     if isinstance(actual, date):
         return actual.isoformat()
     return str(actual)
@@ -296,6 +300,15 @@ def _valor_actual(campo: Campo, entidad: Any) -> str:
 
 
 def _pedir_fk(campo: Campo, actual: Any = None) -> Any:
+    """Lista las opciones de la tabla referenciada y pide un id válido.
+
+    Args:
+        campo: Campo de tipo "fk".
+        actual: Id actual; se devuelve si el usuario deja la entrada vacía.
+
+    Returns:
+        El id elegido, o `actual` si no se eligió ninguno.
+    """
     tabla = CATALOGO[campo.fk_tabla]
     opciones = tabla.fabrica_repo().leer_todos()
     if not opciones:
@@ -375,6 +388,7 @@ def _pedir_campos(tabla: Tabla, entidad: Any = None) -> dict | None:
 
 
 def _pedir_id() -> int | None:
+    """Pide un id numérico. Devuelve None si el usuario deja la entrada vacía."""
     while True:
         raw = input("ID: ").strip()
         if raw == "":
@@ -386,6 +400,7 @@ def _pedir_id() -> int | None:
 
 
 def _mostrar_error_validacion(error: ValidationError) -> None:
+    """Muestra el primer error de validación de Pydantic en lenguaje simple."""
     errores = error.errors()
     if not errores:
         print("Datos inválidos.")
@@ -399,6 +414,7 @@ def _mostrar_error_validacion(error: ValidationError) -> None:
 
 
 def _ver(tabla: Tabla) -> None:
+    """Lista todos los registros de la tabla."""
     entidades = tabla.fabrica_repo().leer_todos()
     if not entidades:
         print("No hay nada cargado.")
@@ -410,6 +426,7 @@ def _ver(tabla: Tabla) -> None:
 
 
 def _crear(tabla: Tabla) -> None:
+    """Pide los datos de un registro nuevo, lo valida y lo guarda."""
     datos = _pedir_campos(tabla)
     if datos is None:
         print("Cancelado.")
@@ -427,6 +444,7 @@ def _crear(tabla: Tabla) -> None:
 
 
 def _editar(tabla: Tabla) -> None:
+    """Edita solo los campos que elija el usuario de un registro existente."""
     repo = tabla.fabrica_repo()
     if not repo.leer_todos():
         print("No hay nada cargado.")
@@ -470,6 +488,7 @@ def _editar(tabla: Tabla) -> None:
 
 
 def _eliminar(tabla: Tabla) -> None:
+    """Borra un registro por id, previa confirmación."""
     repo = tabla.fabrica_repo()
     if not repo.leer_todos():
         print("No hay nada cargado.")
@@ -492,6 +511,7 @@ def _eliminar(tabla: Tabla) -> None:
 
 
 def _buscar(tabla: Tabla) -> None:
+    """Muestra los registros que contienen el texto en alguna columna."""
     texto = input("Buscar: ").strip()
     if not texto:
         return
@@ -521,6 +541,7 @@ def _buscar(tabla: Tabla) -> None:
 
 
 def _menu_tabla(tabla: Tabla) -> None:
+    """Menú CRUD de una tabla: ver, agregar, editar, borrar y buscar."""
     while True:
         print()
         print(tabla.etiqueta)
@@ -547,6 +568,7 @@ def _menu_tabla(tabla: Tabla) -> None:
 
 
 def _menu_principal() -> None:
+    """Menú principal con la lista de tablas."""
     claves = [t.clave for t in TABLAS]
     while True:
         print()
@@ -565,6 +587,6 @@ def main() -> None:
     """Punto de entrada de la aplicación de consola."""
     try:
         _menu_principal()
-    except KeyboardInterrupt, EOFError:
+    except (KeyboardInterrupt, EOFError):
         print()
         print("Chau.")

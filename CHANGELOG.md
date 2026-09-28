@@ -11,6 +11,8 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 - Interfaz de terminal interactiva: ver, agregar, editar, borrar y buscar en cada tabla, con referencias resueltas a texto legible.
 - Edición selectiva: al editar se elige qué atributo(s) modificar.
 - Formateo de tablas en texto plano.
+- `except` con múltiples excepciones entre paréntesis (compatibilidad con Python 3.12).
+- Docstrings en las funciones de la consola.
 
 ## [Ejercicio 05]
 
