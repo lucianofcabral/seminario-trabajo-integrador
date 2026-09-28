@@ -5,6 +5,8 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 ## [Ejercicio 07]
 
 - Punto de entrada que abre la consola.
+- `main(import_default_data)` en `main.py`: con True regenera los datos de ejemplo, con False usa los CSV existentes.
+- El comando `book-manager` apunta a `book_manager.main:main`.
 
 ## [Ejercicio 06]
 
