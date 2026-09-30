@@ -2,6 +2,10 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 05]
+
+- Corrección del autor del libro 23 ("Órbita rota") en `libro.csv`.
+
 ## [Ejercicio 01]
 
 - Se quita el notebook del repositorio: la entrega se arma en Colab.
