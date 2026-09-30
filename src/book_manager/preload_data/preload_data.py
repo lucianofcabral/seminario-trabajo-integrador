@@ -9,8 +9,8 @@ from typing import Any
 import pycountry
 from babel.numbers import get_currency_name
 
-from book_manager.rutas import CSV_FOLDER_PATH
 from book_manager.repositories.csv_config import csv_config
+from book_manager.rutas import CSV_FOLDER_PATH
 
 CSV_FOLDER: Path = CSV_FOLDER_PATH
 
@@ -86,7 +86,7 @@ def generar_csv_monedas(renovar: bool = False) -> None:
 
         try:
             nombre_es = get_currency_name(codigo, locale="es")
-        except Exception as e:
+        except (KeyError, ValueError) as e:
             print(f"Error al obtener datos para {codigo}: {e}")
             continue
 

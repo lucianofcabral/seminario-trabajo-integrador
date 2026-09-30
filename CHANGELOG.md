@@ -5,6 +5,7 @@ Cambios del proyecto por ejercicio. El más reciente está primero.
 ## [Ejercicio 05]
 
 - Corrección del autor del libro 23 ("Órbita rota") en `libro.csv`.
+- `preload_data.py`: imports ordenados y el `except` al generar monedas captura solo `KeyError` y `ValueError`.
 
 ## [Ejercicio 01]
 
