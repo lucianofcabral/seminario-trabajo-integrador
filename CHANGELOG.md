@@ -2,6 +2,13 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 04]
+
+- Modelos ORM en `models/models.py`: 8 tablas con `Base` declarativa (SQLAlchemy 2.0, `Mapped`/`mapped_column`).
+- Tipos y restricciones: `unique` en ISBN, código de moneda, proveedor, género y tipo de cotización.
+- Relaciones: libro↔editorial, libro↔género, libro↔stock (1:1), libro↔precios, moneda↔precios, tipo de cotización↔cotizaciones.
+- Tests en `tests/test_models.py`.
+
 ## [Ejercicio 03]
 
 - Context manager `transaccion()` en `database/connection.py`: commit al salir sin error, rollback ante excepción y cierre de la sesión.
