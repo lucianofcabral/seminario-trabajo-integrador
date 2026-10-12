@@ -1,12 +1,12 @@
-"""Lógica de negocio sobre los repositorios.
+"""Lógica de negocio sobre los repositorios SQL.
 
-Los servicios son la puerta de entrada que usa la interfaz: validan que las
-referencias entre entidades existan, impiden borrar registros que otros usan y
-resuelven las relaciones entre objetos. La persistencia queda en los repositorios.
+Los servicios validan que las referencias existan, impiden borrar registros en
+uso y resuelven las relaciones. Trabajan con las claves naturales de cada entidad.
 """
 
 from datetime import date
 
+from book_manager.database.connection import ConexionDB
 from book_manager.entities.entities import (
     CotizacionDolar,
     Editorial,
@@ -28,107 +28,44 @@ from book_manager.repositories.repositories import (
     IRepositorioPrecio,
     IRepositorioStock,
     IRepositorioTipoCotizacion,
-    RepoCotizacionDolarCSV,
-    RepoEditorialCSV,
-    RepoGeneroCSV,
-    RepoLibroCSV,
-    RepoMonedaCSV,
-    RepoPrecioCSV,
-    RepoStockCSV,
-    RepoTipoCotizacionCSV,
+)
+from book_manager.repositories.sql_repository import (
+    RepoCotizacionDolarSQL,
+    RepoEditorialSQL,
+    RepoGeneroSQL,
+    RepoLibroSQL,
+    RepoMonedaSQL,
+    RepoPrecioSQL,
+    RepoStockSQL,
+    RepoTipoCotizacionSQL,
 )
 
 
-def _exigir_existencia(repo: IRepositorio, entidad_id: int, descripcion: str) -> None:
-    """Verifica que exista la entidad referenciada.
-
-    Args:
-        repo: Repositorio donde buscarla.
-        entidad_id: ID referenciado.
-        descripcion: La entidad con su artículo, para el mensaje de error,
-            p. ej. "la editorial".
-
-    Raises:
-        ValueError: Si no existe una entidad con ese ID.
-    """
-    if repo.leer_por_id(entidad_id) is None:
-        raise ValueError(f"No existe {descripcion} con id {entidad_id}.")
-
-
 class ServicioBase[T: EntidadBase]:
-    """Operaciones CRUD con las reglas de negocio de cada entidad.
-
-    Las subclases redefinen `_validar` y `_antes_de_eliminar` para agregar sus
-    reglas.
-    """
+    """Operaciones CRUD con las reglas de negocio de cada entidad."""
 
     def __init__(self, repo: IRepositorio[T]) -> None:
-        """Recibe el repositorio donde se guardan las entidades.
-
-        Args:
-            repo: Repositorio de la entidad.
-        """
         self._repo = repo
 
     def leer_todos(self) -> list[T]:
-        """Devuelve todas las entidades."""
         return self._repo.leer_todos()
 
-    def leer_por_id(self, entidad_id: int) -> T | None:
-        """Devuelve la entidad con ese ID, o None si no existe."""
-        return self._repo.leer_por_id(entidad_id)
-
     def crear(self, entidad: T) -> T:
-        """Valida y guarda una entidad nueva.
-
-        Args:
-            entidad: Entidad a crear.
-
-        Returns:
-            La entidad creada, con su ID.
-
-        Raises:
-            ValueError: Si no cumple las reglas de negocio o repite una clave.
-        """
         self._validar(entidad)
         return self._repo.crear(entidad)
 
-    def actualizar(self, entidad: T) -> T:
-        """Valida y guarda los cambios de una entidad existente.
-
-        Args:
-            entidad: Entidad con un ID existente y los datos nuevos.
-
-        Returns:
-            La entidad actualizada.
-
-        Raises:
-            ValueError: Si no existe, no cumple las reglas o repite una clave.
-        """
+    def actualizar(self, clave: object, entidad: T) -> T:
         self._validar(entidad)
-        return self._repo.actualizar(entidad)
+        return self._repo.actualizar(clave, entidad)
 
-    def eliminar(self, entidad_id: int) -> bool:
-        """Elimina una entidad si las reglas de negocio lo permiten.
-
-        Args:
-            entidad_id: ID de la entidad.
-
-        Returns:
-            True si se eliminó, False si no existía.
-
-        Raises:
-            ValueError: Si otras entidades dependen de ella.
-        """
-        if self._repo.leer_por_id(entidad_id) is None:
-            return False
-        self._antes_de_eliminar(entidad_id)
-        return self._repo.eliminar(entidad_id)
+    def eliminar(self, clave: object) -> bool:
+        self._antes_de_eliminar(clave)
+        return self._repo.eliminar(clave)
 
     def _validar(self, entidad: T) -> None:
-        """Verifica las reglas de negocio antes de guardar. Por defecto, ninguna."""
+        """Reglas de negocio antes de guardar. Por defecto, ninguna."""
 
-    def _antes_de_eliminar(self, entidad_id: int) -> None:
+    def _antes_de_eliminar(self, clave: object) -> None:
         """Verifica o prepara la eliminación. Por defecto, no hace nada."""
 
 
@@ -142,42 +79,33 @@ class ServicioLibro(ServicioBase[Libro]):
         repo_genero: IRepositorioGenero | None = None,
         repo_stock: IRepositorioStock | None = None,
         repo_precio: IRepositorioPrecio | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoLibroCSV())
-        self._repo_editorial = repo_editorial or RepoEditorialCSV()
-        self._repo_genero = repo_genero or RepoGeneroCSV()
-        self._repo_stock = repo_stock or RepoStockCSV()
-        self._repo_precio = repo_precio or RepoPrecioCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoLibroSQL(conexion))
+        self._repo_editorial = repo_editorial or RepoEditorialSQL(conexion)
+        self._repo_genero = repo_genero or RepoGeneroSQL(conexion)
+        self._repo_stock = repo_stock or RepoStockSQL(conexion)
+        self._repo_precio = repo_precio or RepoPrecioSQL(conexion)
 
-    def editorial_de(self, libro: Libro) -> Editorial | None:
-        """Devuelve la editorial del libro."""
-        return self._repo_editorial.leer_por_id(libro.editorial_id)
+    def stock_de(self, isbn: str) -> Stock | None:
+        return self._repo_stock.leer_por_libro(isbn)
 
-    def genero_de(self, libro: Libro) -> Genero | None:
-        """Devuelve el género del libro."""
-        return self._repo_genero.leer_por_id(libro.genero_id)
-
-    def stock_de(self, libro_id: int) -> Stock | None:
-        """Devuelve el stock del libro, o None si no tiene."""
-        return self._repo_stock.leer_por_libro(libro_id)
-
-    def precios_de(self, libro_id: int) -> list[Precio]:
-        """Devuelve los precios del libro, uno por moneda."""
-        return self._repo_precio.leer_por_libro(libro_id)
+    def precios_de(self, isbn: str) -> list[Precio]:
+        return self._repo_precio.leer_por_libro(isbn)
 
     def _validar(self, libro: Libro) -> None:
-        """Exige que la editorial y el género existan."""
-        _exigir_existencia(self._repo_editorial, libro.editorial_id, "la editorial")
-        _exigir_existencia(self._repo_genero, libro.genero_id, "el género")
+        if self._repo_editorial.leer_por_proveedor(libro.editorial.proveedor) is None:
+            raise ValueError(f"No existe la editorial {libro.editorial.proveedor!r}.")
+        if self._repo_genero.leer_por_nombre(libro.genero.genero) is None:
+            raise ValueError(f"No existe el género {libro.genero.genero!r}.")
 
-    def _antes_de_eliminar(self, libro_id: int) -> None:
-        """Borra el stock y los precios del libro, que no tienen sentido sin él."""
-        stock = self._repo_stock.leer_por_libro(libro_id)
+    def _antes_de_eliminar(self, isbn: object) -> None:
+        stock = self._repo_stock.leer_por_libro(str(isbn))
         if stock is not None:
-            self._repo_stock.eliminar(stock.id)
-        for precio in self._repo_precio.leer_por_libro(libro_id):
-            self._repo_precio.eliminar(precio.id)
+            self._repo_stock.eliminar(str(isbn))
+        for precio in self._repo_precio.leer_por_libro(str(isbn)):
+            self._repo_precio.eliminar((str(isbn), precio.moneda.codigo))
 
 
 class ServicioGenero(ServicioBase[Genero]):
@@ -187,18 +115,17 @@ class ServicioGenero(ServicioBase[Genero]):
         self,
         repo: IRepositorioGenero | None = None,
         repo_libro: IRepositorioLibro | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoGeneroCSV())
-        self._repo_libro = repo_libro or RepoLibroCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoGeneroSQL(conexion))
+        self._repo_libro = repo_libro or RepoLibroSQL(conexion)
 
-    def libros_de(self, genero_id: int) -> list[Libro]:
-        """Devuelve los libros del género."""
-        return self._repo_libro.leer_por_genero(genero_id)
+    def libros_de(self, nombre: str) -> list[Libro]:
+        return self._repo_libro.leer_por_genero(nombre)
 
-    def _antes_de_eliminar(self, genero_id: int) -> None:
-        """Impide borrar un género que tiene libros."""
-        cantidad = len(self.libros_de(genero_id))
+    def _antes_de_eliminar(self, nombre: object) -> None:
+        cantidad = len(self.libros_de(str(nombre)))
         if cantidad:
             raise ValueError(f"El género tiene {cantidad} libro(s) asociados.")
 
@@ -210,18 +137,17 @@ class ServicioEditorial(ServicioBase[Editorial]):
         self,
         repo: IRepositorioEditorial | None = None,
         repo_libro: IRepositorioLibro | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoEditorialCSV())
-        self._repo_libro = repo_libro or RepoLibroCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoEditorialSQL(conexion))
+        self._repo_libro = repo_libro or RepoLibroSQL(conexion)
 
-    def libros_de(self, editorial_id: int) -> list[Libro]:
-        """Devuelve los libros de la editorial."""
-        return self._repo_libro.leer_por_editorial(editorial_id)
+    def libros_de(self, proveedor: str) -> list[Libro]:
+        return self._repo_libro.leer_por_editorial(proveedor)
 
-    def _antes_de_eliminar(self, editorial_id: int) -> None:
-        """Impide borrar una editorial que tiene libros."""
-        cantidad = len(self.libros_de(editorial_id))
+    def _antes_de_eliminar(self, proveedor: object) -> None:
+        cantidad = len(self.libros_de(str(proveedor)))
         if cantidad:
             raise ValueError(f"La editorial tiene {cantidad} libro(s) asociados.")
 
@@ -233,14 +159,14 @@ class ServicioMoneda(ServicioBase[Moneda]):
         self,
         repo: IRepositorioMoneda | None = None,
         repo_precio: IRepositorioPrecio | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoMonedaCSV())
-        self._repo_precio = repo_precio or RepoPrecioCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoMonedaSQL(conexion))
+        self._repo_precio = repo_precio or RepoPrecioSQL(conexion)
 
-    def _antes_de_eliminar(self, moneda_id: int) -> None:
-        """Impide borrar una moneda que tiene precios."""
-        cantidad = len(self._repo_precio.leer_por_moneda(moneda_id))
+    def _antes_de_eliminar(self, codigo: object) -> None:
+        cantidad = len(self._repo_precio.leer_por_moneda(str(codigo)))
         if cantidad:
             raise ValueError(f"La moneda tiene {cantidad} precio(s) asociados.")
 
@@ -252,32 +178,21 @@ class ServicioStock(ServicioBase[Stock]):
         self,
         repo: IRepositorioStock | None = None,
         repo_libro: IRepositorioLibro | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoStockCSV())
-        self._repo_libro = repo_libro or RepoLibroCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoStockSQL(conexion))
+        self._repo_libro = repo_libro or RepoLibroSQL(conexion)
 
-    def modificar_stock(self, libro_id: int, existencia: int) -> Stock:
-        """Reemplaza la existencia de un libro.
-
-        Args:
-            libro_id: ID del libro.
-            existencia: Nueva cantidad disponible.
-
-        Returns:
-            El stock actualizado.
-
-        Raises:
-            ValueError: Si el libro no tiene registro de stock.
-        """
-        stock = self._repo.leer_por_libro(libro_id)
+    def modificar_stock(self, isbn: str, existencia: int) -> Stock:
+        stock = self._repo.leer_por_libro(isbn)
         if stock is None:
-            raise ValueError(f"No se encontró stock para el libro {libro_id}.")
-        return self.actualizar(stock.model_copy(update={"existencia": existencia}))
+            raise ValueError(f"No se encontró stock para el libro {isbn}.")
+        return self.actualizar(isbn, stock.model_copy(update={"existencia": existencia}))
 
     def _validar(self, stock: Stock) -> None:
-        """Exige que el libro exista."""
-        _exigir_existencia(self._repo_libro, stock.libro_id, "el libro")
+        if self._repo_libro.leer_por_isbn(stock.libro.isbn) is None:
+            raise ValueError(f"No existe el libro con ISBN {stock.libro.isbn!r}.")
 
 
 class ServicioPrecio(ServicioBase[Precio]):
@@ -288,37 +203,28 @@ class ServicioPrecio(ServicioBase[Precio]):
         repo: IRepositorioPrecio | None = None,
         repo_libro: IRepositorioLibro | None = None,
         repo_moneda: IRepositorioMoneda | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoPrecioCSV())
-        self._repo_libro = repo_libro or RepoLibroCSV()
-        self._repo_moneda = repo_moneda or RepoMonedaCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoPrecioSQL(conexion))
+        self._repo_libro = repo_libro or RepoLibroSQL(conexion)
+        self._repo_moneda = repo_moneda or RepoMonedaSQL(conexion)
 
-    def modificar_precio(self, libro_id: int, moneda_id: int, valor: float) -> Precio:
-        """Reemplaza el valor del precio de un libro en una moneda.
-
-        Args:
-            libro_id: ID del libro.
-            moneda_id: ID de la moneda.
-            valor: Nuevo valor.
-
-        Returns:
-            El precio actualizado.
-
-        Raises:
-            ValueError: Si no existe precio para ese libro y moneda.
-        """
-        precio = self._repo.leer_por_libro_y_moneda(libro_id, moneda_id)
+    def modificar_precio(self, isbn: str, codigo: str, valor: float) -> Precio:
+        precio = self._repo.leer_por_libro_y_moneda(isbn, codigo)
         if precio is None:
             raise ValueError(
-                f"No se encontró precio para el libro {libro_id} y la moneda {moneda_id}."
+                f"No se encontró precio para el libro {isbn} y la moneda {codigo}."
             )
-        return self.actualizar(precio.model_copy(update={"valor": valor}))
+        return self.actualizar(
+            (isbn, codigo), precio.model_copy(update={"valor": valor})
+        )
 
     def _validar(self, precio: Precio) -> None:
-        """Exige que el libro y la moneda existan."""
-        _exigir_existencia(self._repo_libro, precio.libro_id, "el libro")
-        _exigir_existencia(self._repo_moneda, precio.moneda_id, "la moneda")
+        if self._repo_libro.leer_por_isbn(precio.libro.isbn) is None:
+            raise ValueError(f"No existe el libro con ISBN {precio.libro.isbn!r}.")
+        if self._repo_moneda.leer_por_codigo(precio.moneda.codigo) is None:
+            raise ValueError(f"No existe la moneda {precio.moneda.codigo!r}.")
 
 
 class ServicioTipoCotizacion(ServicioBase[TipoCotizacion]):
@@ -328,14 +234,14 @@ class ServicioTipoCotizacion(ServicioBase[TipoCotizacion]):
         self,
         repo: IRepositorioTipoCotizacion | None = None,
         repo_cotizacion: IRepositorioCotizacionDolar | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoTipoCotizacionCSV())
-        self._repo_cotizacion = repo_cotizacion or RepoCotizacionDolarCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoTipoCotizacionSQL(conexion))
+        self._repo_cotizacion = repo_cotizacion or RepoCotizacionDolarSQL(conexion)
 
-    def _antes_de_eliminar(self, tipo_id: int) -> None:
-        """Impide borrar un tipo que tiene cotizaciones registradas."""
-        cantidad = len(self._repo_cotizacion.leer_historico_por_tipo(tipo_id))
+    def _antes_de_eliminar(self, tipo: object) -> None:
+        cantidad = len(self._repo_cotizacion.leer_historico_por_tipo(str(tipo)))
         if cantidad:
             raise ValueError(f"El tipo tiene {cantidad} cotización(es) registradas.")
 
@@ -347,26 +253,24 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
         self,
         repo: IRepositorioCotizacionDolar | None = None,
         repo_tipo: IRepositorioTipoCotizacion | None = None,
+        conexion: ConexionDB | None = None,
     ) -> None:
-        """Recibe los repositorios; si no se pasan, usa los de CSV."""
-        super().__init__(repo or RepoCotizacionDolarCSV())
-        self._repo_tipo = repo_tipo or RepoTipoCotizacionCSV()
+        conexion = conexion or ConexionDB()
+        super().__init__(repo or RepoCotizacionDolarSQL(conexion))
+        self._repo_tipo = repo_tipo or RepoTipoCotizacionSQL(conexion)
 
-    def historico(self, tipo_id: int) -> list[CotizacionDolar]:
-        """Devuelve las cotizaciones de un tipo, ordenadas por fecha."""
-        return self._repo.leer_historico_por_tipo(tipo_id)
+    def historico(self, tipo: str) -> list[CotizacionDolar]:
+        return self._repo.leer_historico_por_tipo(tipo)
 
-    def cotizacion_del_dia(self, tipo_id: int, fecha: date) -> CotizacionDolar | None:
-        """Devuelve la cotización de un tipo en una fecha, o None si no hay."""
-        return self._repo.leer_por_tipo_y_fecha(tipo_id, fecha)
+    def cotizacion_del_dia(self, tipo: str, fecha: date) -> CotizacionDolar | None:
+        return self._repo.leer_por_tipo_y_fecha(tipo, fecha)
 
-    def ultima(self, tipo_id: int) -> CotizacionDolar | None:
-        """Devuelve la cotización más reciente de un tipo, o None si no hay."""
-        historico = self.historico(tipo_id)
+    def ultima(self, tipo: str) -> CotizacionDolar | None:
+        historico = self.historico(tipo)
         return historico[-1] if historico else None
 
     def _validar(self, cotizacion: CotizacionDolar) -> None:
-        """Exige que el tipo de cotización exista."""
-        _exigir_existencia(
-            self._repo_tipo, cotizacion.tipo_cotizacion_id, "el tipo de cotización"
-        )
+        if self._repo_tipo.leer_por_tipo(cotizacion.tipo_cotizacion.tipo) is None:
+            raise ValueError(
+                f"No existe el tipo de cotización {cotizacion.tipo_cotizacion.tipo!r}."
+            )

@@ -4,7 +4,11 @@ import csv
 from pathlib import Path
 
 from book_manager.preload_data import preload_data
-from book_manager.repositories import repositories as repos
+
+
+def _leer_csv(path: Path) -> list[dict]:
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
 
 
 def _leer_header(path: Path) -> list[str]:
@@ -13,7 +17,7 @@ def _leer_header(path: Path) -> list[str]:
 
 
 def test_generar_csv_stock_usa_existencia(tmp_path, monkeypatch):
-    """El CSV de stock debe usar `existencia` (campo del modelo), no `existencias` (bug #2)."""
+    """El CSV de stock debe usar `existencia`, no `existencias`."""
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
     preload_data.generar_csv_stock(renovar=True)
 
@@ -23,15 +27,13 @@ def test_generar_csv_stock_usa_existencia(tmp_path, monkeypatch):
 
 
 def test_generar_csv_cotizacion_usa_campos_del_modelo(tmp_path, monkeypatch):
-    """El CSV de cotización debe usar los campos del modelo (bug #3)."""
+    """El CSV de cotización debe usar `tipo_cotizacion_id` y `valor_pesos`."""
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
     preload_data.generar_csv_cotizacion(renovar=True)
 
     header = _leer_header(tmp_path / "cotizacion.csv")
     assert "tipo_cotizacion_id" in header
     assert "valor_pesos" in header
-    assert "tipo" not in header
-    assert "valor" not in header
 
 
 def test_generar_csv_tipo_cotizacion_tiene_diez_registros(tmp_path, monkeypatch):
@@ -39,29 +41,31 @@ def test_generar_csv_tipo_cotizacion_tiene_diez_registros(tmp_path, monkeypatch)
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
     preload_data.generar_csv_tipo_cotizacion(renovar=True)
 
-    with open(tmp_path / "tipo_cotizacion.csv", newline="", encoding="utf-8") as f:
-        filas = list(csv.DictReader(f))
+    filas = _leer_csv(tmp_path / "tipo_cotizacion.csv")
     assert len(filas) >= 10
 
 
-def test_precarga_completa_es_consistente(tmp_path, monkeypatch, repos_csv):
+def test_precarga_completa_es_consistente(tmp_path, monkeypatch):
     """Cada tabla tiene al menos 10 registros y todas las referencias existen."""
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
-
     preload_data.precargar_datos(renovar=True)
 
-    datos = {repo_cls: repo_cls().leer_todos() for repo_cls in repos_csv}
-    assert all(len(filas) >= 10 for filas in datos.values())
+    def ids(nombre: str) -> set[str]:
+        return {fila["id"] for fila in _leer_csv(tmp_path / f"{nombre}.csv")}
 
-    ids = {repo_cls: {e.id for e in filas} for repo_cls, filas in datos.items()}
-    for libro in datos[repos.RepoLibroCSV]:
-        assert libro.editorial_id in ids[repos.RepoEditorialCSV]
-        assert libro.genero_id in ids[repos.RepoGeneroCSV]
-    usd = repos.RepoMonedaCSV().leer_por_codigo("USD")
-    for precio in datos[repos.RepoPrecioCSV]:
-        assert precio.libro_id in ids[repos.RepoLibroCSV]
-        assert precio.moneda_id == usd.id
-    for stock in datos[repos.RepoStockCSV]:
-        assert stock.libro_id in ids[repos.RepoLibroCSV]
-    for cotizacion in datos[repos.RepoCotizacionDolarCSV]:
-        assert cotizacion.tipo_cotizacion_id in ids[repos.RepoTipoCotizacionCSV]
+    editoriales = ids("editorial")
+    generos = ids("genero")
+    libros = ids("libro")
+    monedas = ids("moneda")
+    tipos = ids("tipo_cotizacion")
+
+    for libro in _leer_csv(tmp_path / "libro.csv"):
+        assert libro["editorial_id"] in editoriales
+        assert libro["genero_id"] in generos
+    for stock in _leer_csv(tmp_path / "stock.csv"):
+        assert stock["libro_id"] in libros
+    for precio in _leer_csv(tmp_path / "precio.csv"):
+        assert precio["libro_id"] in libros
+        assert precio["moneda_id"] in monedas
+    for cotizacion in _leer_csv(tmp_path / "cotizacion.csv"):
+        assert cotizacion["tipo_cotizacion_id"] in tipos

@@ -2,6 +2,17 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 06]
+
+- Entidades sin `id`: la identidad es la clave natural (ISBN, código, proveedor, género, tipo) y las relaciones son referencias a objetos (`Libro.editorial` es un `Editorial`).
+- Puertos (interfaces) con claves naturales en `repositories/repositories.py`.
+- Adaptador SQL en `repositories/sql_repository.py`: mapea entidad ↔ modelo ORM y resuelve FKs por clave natural.
+- Retirada la implementación CSV de repos; la migración lee los CSV directamente.
+- Servicios y consola cableados a SQL, con selección por número de fila en lugar de id.
+- `main.py` conecta a Supabase, puebla si está vacía y abre la consola.
+- Reseteo de secuencias PostgreSQL tras la migración (ids explícitos).
+- Tests reescritos para SQL (SQLite) y claves naturales.
+
 ## [Ejercicio 05]
 
 - `migrations/migrations.py`: `migrar_datos(carpeta_csvs, carpeta_sqls)` lee los CSV del TP1 y genera un `.sql` con los INSERT por tabla.

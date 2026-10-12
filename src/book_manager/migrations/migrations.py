@@ -44,6 +44,27 @@ def poblar_base_de_datos(conexion: ConexionDB, carpeta_sqls: str) -> None:
                 if sentencia:
                     sesion.execute(text(sentencia))
 
+    _resetear_secuencias(conexion)
+
+
+def _resetear_secuencias(conexion: ConexionDB) -> None:
+    """Avanza las secuencias de id tras insertar valores explícitos (PostgreSQL).
+
+    Como los CSV preservan sus `id`, la secuencia `SERIAL` queda en 1 y el
+    siguiente INSERT autoincremental colisionaría. `setval` la lleva al máximo
+    actual. En otros dialectos (p. ej. SQLite) no hay secuencia y no hace nada.
+    """
+    if conexion.engine.dialect.name != "postgresql":
+        return
+    for tabla in Base.metadata.sorted_tables:
+        with conexion.transaccion() as sesion:
+            sesion.execute(
+                text(
+                    f"SELECT setval(pg_get_serial_sequence('{tabla.name}', 'id'), "
+                    f"(SELECT COALESCE(MAX(id), 1) FROM {tabla.name}))"
+                )
+            )
+
 
 def _leer_csv(csv_path: Path) -> tuple[list[str], list[dict[str, str]]]:
     """Lee un CSV y devuelve (columnas, filas) con los valores como texto."""

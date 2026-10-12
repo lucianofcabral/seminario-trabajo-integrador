@@ -1,3 +1,9 @@
+"""Interfaz de consola interactiva, cableada a los servicios SQL.
+
+Cada tabla se describe con sus campos editables y su clave natural. Las
+referencias entre entidades se muestran y piden como objetos completos, no por id.
+"""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -5,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from book_manager.database.connection import ConexionDB
 from book_manager.entities.entities import (
     CotizacionDolar,
     Editorial,
@@ -49,151 +56,154 @@ class Tabla:
     fabrica_servicio: Callable[[], Any]
     campos: tuple[Campo, ...]
     columnas: tuple[tuple[str, str], ...]  # (clave, etiqueta) de la vista
-    texto: Callable[[Any], str]  # representación para cuando otra tabla la referencia
+    texto: Callable[[Any], str]  # representación legible de una entidad
+    clave_de: Callable[[Any], object]  # clave natural de una entidad
 
 
-TABLAS: list[Tabla] = [
-    Tabla(
-        clave="libro",
-        etiqueta="Libros",
-        singular="libro",
-        modelo=Libro,
-        fabrica_servicio=ServicioLibro,
-        campos=(
-            Campo("isbn", "ISBN", "str"),
-            Campo("titulo", "Título", "str"),
-            Campo("autor", "Autor", "str"),
-            Campo("editorial_id", "Editorial", "fk", "editorial"),
-            Campo("genero_id", "Género", "fk", "genero"),
-        ),
-        columnas=(
-            ("id", "ID"),
-            ("isbn", "ISBN"),
-            ("titulo", "Título"),
-            ("autor", "Autor"),
-            ("editorial_id", "Editorial"),
-            ("genero_id", "Género"),
-        ),
-        texto=lambda e: e.titulo,
-    ),
-    Tabla(
-        clave="editorial",
-        etiqueta="Editoriales",
-        singular="editorial",
-        modelo=Editorial,
-        fabrica_servicio=ServicioEditorial,
-        campos=(
-            Campo("proveedor", "Proveedor", "str"),
-            Campo("pais", "País", "str"),
-            Campo("provincia", "Provincia", "str"),
-            Campo("localidad", "Localidad", "str"),
-            Campo("domicilio", "Domicilio", "str"),
-            Campo("telefono", "Teléfono", "str"),
-            Campo("email", "Email", "str"),
-            Campo("responsable", "Responsable", "str"),
-        ),
-        columnas=(
-            ("id", "ID"),
-            ("proveedor", "Proveedor"),
-            ("pais", "País"),
-            ("localidad", "Localidad"),
-            ("telefono", "Teléfono"),
-            ("email", "Email"),
-            ("responsable", "Responsable"),
-        ),
-        texto=lambda e: e.proveedor,
-    ),
-    Tabla(
-        clave="genero",
-        etiqueta="Géneros",
-        singular="género",
-        modelo=Genero,
-        fabrica_servicio=ServicioGenero,
-        campos=(Campo("genero", "Género", "str"),),
-        columnas=(("id", "ID"), ("genero", "Género")),
-        texto=lambda e: e.genero,
-    ),
-    Tabla(
-        clave="stock",
-        etiqueta="Stock",
-        singular="stock",
-        modelo=Stock,
-        fabrica_servicio=ServicioStock,
-        campos=(
-            Campo("libro_id", "Libro", "fk", "libro"),
-            Campo("existencia", "Existencia", "int"),
-        ),
-        columnas=(
-            ("id", "ID"),
-            ("libro_id", "Libro"),
-            ("existencia", "Existencia"),
-        ),
-        texto=lambda e: f"#{e.id}",
-    ),
-    Tabla(
-        clave="precio",
-        etiqueta="Precios",
-        singular="precio",
-        modelo=Precio,
-        fabrica_servicio=ServicioPrecio,
-        campos=(
-            Campo("libro_id", "Libro", "fk", "libro"),
-            Campo("moneda_id", "Moneda", "fk", "moneda"),
-            Campo("valor", "Valor", "float"),
-        ),
-        columnas=(
-            ("id", "ID"),
-            ("libro_id", "Libro"),
-            ("moneda_id", "Moneda"),
-            ("valor", "Valor"),
-        ),
-        texto=lambda e: f"#{e.id}",
-    ),
-    Tabla(
-        clave="moneda",
-        etiqueta="Monedas",
-        singular="moneda",
-        modelo=Moneda,
-        fabrica_servicio=ServicioMoneda,
-        campos=(
-            Campo("codigo", "Código", "str"),
-            Campo("nombre", "Nombre", "str"),
-        ),
-        columnas=(("id", "ID"), ("codigo", "Código"), ("nombre", "Nombre")),
-        texto=lambda e: e.codigo,
-    ),
-    Tabla(
-        clave="tipo_cotizacion",
-        etiqueta="Tipos de cotización",
-        singular="tipo de cotización",
-        modelo=TipoCotizacion,
-        fabrica_servicio=ServicioTipoCotizacion,
-        campos=(Campo("tipo", "Tipo", "str"),),
-        columnas=(("id", "ID"), ("tipo", "Tipo")),
-        texto=lambda e: e.tipo,
-    ),
-    Tabla(
-        clave="cotizacion",
-        etiqueta="Cotizaciones",
-        singular="cotización",
-        modelo=CotizacionDolar,
-        fabrica_servicio=ServicioCotizacionDolar,
-        campos=(
-            Campo("tipo_cotizacion_id", "Tipo", "fk", "tipo_cotizacion"),
-            Campo("fecha", "Fecha (AAAA-MM-DD)", "fecha"),
-            Campo("valor_pesos", "Valor en pesos", "float"),
-        ),
-        columnas=(
-            ("id", "ID"),
-            ("tipo_cotizacion_id", "Tipo"),
-            ("fecha", "Fecha"),
-            ("valor_pesos", "Valor (ARS)"),
-        ),
-        texto=lambda e: f"#{e.id}",
-    ),
-]
+CATALOGO: dict[str, Tabla] = {}
 
-CATALOGO: dict[str, Tabla] = {t.clave: t for t in TABLAS}
+
+def _construir_tablas(conexion: ConexionDB) -> list[Tabla]:
+    """Arma los descriptores de tabla con los servicios cableados a `conexion`."""
+
+    def fabrica(servicio_cls: type) -> Callable[[], Any]:
+        return lambda: servicio_cls(conexion=conexion)
+
+    return [
+        Tabla(
+            clave="libro",
+            etiqueta="Libros",
+            singular="libro",
+            modelo=Libro,
+            fabrica_servicio=fabrica(ServicioLibro),
+            campos=(
+                Campo("isbn", "ISBN", "str"),
+                Campo("titulo", "Título", "str"),
+                Campo("autor", "Autor", "str"),
+                Campo("editorial", "Editorial", "fk", "editorial"),
+                Campo("genero", "Género", "fk", "genero"),
+            ),
+            columnas=(
+                ("isbn", "ISBN"),
+                ("titulo", "Título"),
+                ("autor", "Autor"),
+                ("editorial", "Editorial"),
+                ("genero", "Género"),
+            ),
+            texto=lambda e: e.titulo,
+            clave_de=lambda e: e.isbn,
+        ),
+        Tabla(
+            clave="editorial",
+            etiqueta="Editoriales",
+            singular="editorial",
+            modelo=Editorial,
+            fabrica_servicio=fabrica(ServicioEditorial),
+            campos=(
+                Campo("proveedor", "Proveedor", "str"),
+                Campo("pais", "País", "str"),
+                Campo("provincia", "Provincia", "str"),
+                Campo("localidad", "Localidad", "str"),
+                Campo("domicilio", "Domicilio", "str"),
+                Campo("telefono", "Teléfono", "str"),
+                Campo("email", "Email", "str"),
+                Campo("responsable", "Responsable", "str"),
+            ),
+            columnas=(
+                ("proveedor", "Proveedor"),
+                ("pais", "País"),
+                ("localidad", "Localidad"),
+                ("telefono", "Teléfono"),
+                ("email", "Email"),
+            ),
+            texto=lambda e: e.proveedor,
+            clave_de=lambda e: e.proveedor,
+        ),
+        Tabla(
+            clave="genero",
+            etiqueta="Géneros",
+            singular="género",
+            modelo=Genero,
+            fabrica_servicio=fabrica(ServicioGenero),
+            campos=(Campo("genero", "Género", "str"),),
+            columnas=(("genero", "Género"),),
+            texto=lambda e: e.genero,
+            clave_de=lambda e: e.genero,
+        ),
+        Tabla(
+            clave="stock",
+            etiqueta="Stock",
+            singular="stock",
+            modelo=Stock,
+            fabrica_servicio=fabrica(ServicioStock),
+            campos=(
+                Campo("libro", "Libro", "fk", "libro"),
+                Campo("existencia", "Existencia", "int"),
+            ),
+            columnas=(("libro", "Libro"), ("existencia", "Existencia")),
+            texto=lambda e: e.libro.titulo,
+            clave_de=lambda e: e.libro.isbn,
+        ),
+        Tabla(
+            clave="precio",
+            etiqueta="Precios",
+            singular="precio",
+            modelo=Precio,
+            fabrica_servicio=fabrica(ServicioPrecio),
+            campos=(
+                Campo("libro", "Libro", "fk", "libro"),
+                Campo("moneda", "Moneda", "fk", "moneda"),
+                Campo("valor", "Valor", "float"),
+            ),
+            columnas=(("libro", "Libro"), ("moneda", "Moneda"), ("valor", "Valor")),
+            texto=lambda e: f"{e.libro.titulo} ({e.moneda.codigo})",
+            clave_de=lambda e: (e.libro.isbn, e.moneda.codigo),
+        ),
+        Tabla(
+            clave="moneda",
+            etiqueta="Monedas",
+            singular="moneda",
+            modelo=Moneda,
+            fabrica_servicio=fabrica(ServicioMoneda),
+            campos=(
+                Campo("codigo", "Código", "str"),
+                Campo("nombre", "Nombre", "str"),
+            ),
+            columnas=(("codigo", "Código"), ("nombre", "Nombre")),
+            texto=lambda e: e.codigo,
+            clave_de=lambda e: e.codigo,
+        ),
+        Tabla(
+            clave="tipo_cotizacion",
+            etiqueta="Tipos de cotización",
+            singular="tipo de cotización",
+            modelo=TipoCotizacion,
+            fabrica_servicio=fabrica(ServicioTipoCotizacion),
+            campos=(Campo("tipo", "Tipo", "str"),),
+            columnas=(("tipo", "Tipo"),),
+            texto=lambda e: e.tipo,
+            clave_de=lambda e: e.tipo,
+        ),
+        Tabla(
+            clave="cotizacion",
+            etiqueta="Cotizaciones",
+            singular="cotización",
+            modelo=CotizacionDolar,
+            fabrica_servicio=fabrica(ServicioCotizacionDolar),
+            campos=(
+                Campo("tipo_cotizacion", "Tipo", "fk", "tipo_cotizacion"),
+                Campo("fecha", "Fecha (AAAA-MM-DD)", "fecha"),
+                Campo("valor_pesos", "Valor en pesos", "float"),
+            ),
+            columnas=(
+                ("tipo_cotizacion", "Tipo"),
+                ("fecha", "Fecha"),
+                ("valor_pesos", "Valor (ARS)"),
+            ),
+            texto=lambda e: f"{e.tipo_cotizacion.tipo} {e.fecha}",
+            clave_de=lambda e: (e.tipo_cotizacion.tipo, e.fecha),
+        ),
+    ]
 
 
 # --- resolución de referencias ---
@@ -207,29 +217,14 @@ def _campo_de(tabla: Tabla, clave: str) -> Campo | None:
     return None
 
 
-def _resolver_fk(clave_tabla: str, entidad_id: Any) -> str:
-    """Devuelve el texto legible de una referencia (id -> texto de la entidad)."""
-    tabla = CATALOGO[clave_tabla]
-    try:
-        entidad = tabla.fabrica_servicio().leer_por_id(int(entidad_id))
-    except (TypeError, ValueError):
-        return str(entidad_id)
-    if entidad is None:
-        return str(entidad_id)
-    return tabla.texto(entidad)
-
-
 def _entidad_a_fila(tabla: Tabla, entidad: Any) -> dict:
     """Convierte una entidad en un dict de vista, resolviendo referencias."""
     fila: dict[str, Any] = {}
     for clave, _ in tabla.columnas:
-        if clave == "id":
-            fila["id"] = entidad.id
-            continue
         campo = _campo_de(tabla, clave)
         valor = getattr(entidad, clave, None)
         if campo is not None and campo.tipo == "fk":
-            fila[clave] = _resolver_fk(campo.fk_tabla, valor)
+            fila[clave] = CATALOGO[campo.fk_tabla].texto(valor) if valor is not None else ""
         else:
             fila[clave] = valor
     return fila
@@ -293,22 +288,14 @@ def _valor_actual(campo: Campo, entidad: Any) -> str:
     """Texto legible del valor actual de un campo (resuelve referencias)."""
     valor = getattr(entidad, campo.clave)
     if campo.tipo == "fk":
-        return _resolver_fk(campo.fk_tabla, valor)
+        return CATALOGO[campo.fk_tabla].texto(valor) if valor is not None else ""
     if isinstance(valor, date):
         return valor.isoformat()
     return str(valor)
 
 
 def _pedir_fk(campo: Campo, actual: Any = None) -> Any:
-    """Lista las opciones de la tabla referenciada y pide un id válido.
-
-    Args:
-        campo: Campo de tipo "fk".
-        actual: Id actual; se devuelve si el usuario deja la entrada vacía.
-
-    Returns:
-        El id elegido, o `actual` si no se eligió ninguno.
-    """
+    """Lista las opciones de la tabla referenciada y devuelve el objeto elegido."""
     tabla = CATALOGO[campo.fk_tabla]
     opciones = tabla.fabrica_servicio().leer_todos()
     if not opciones:
@@ -316,12 +303,12 @@ def _pedir_fk(campo: Campo, actual: Any = None) -> Any:
         return actual
 
     print()
-    for e in opciones:
-        print(f"  {e.id}. {tabla.texto(e)}")
+    for i, e in enumerate(opciones, start=1):
+        print(f"  {i}. {tabla.texto(e)}")
 
-    sufijo = f" [{actual}]" if actual is not None else ""
+    sufijo = f" [{tabla.texto(actual)}]" if actual is not None else ""
     while True:
-        raw = input(f"{campo.etiqueta} (id){sufijo}: ").strip()
+        raw = input(f"{campo.etiqueta} (número){sufijo}: ").strip()
         if raw == "":
             return actual
         try:
@@ -329,9 +316,9 @@ def _pedir_fk(campo: Campo, actual: Any = None) -> Any:
         except ValueError:
             print("Debe ser un número.")
             continue
-        if any(e.id == elegido for e in opciones):
-            return elegido
-        print("Ese id no existe.")
+        if 1 <= elegido <= len(opciones):
+            return opciones[elegido - 1]
+        print("Ese número no existe.")
 
 
 def _pedir_campo(campo: Campo, actual: Any = None) -> Any:
@@ -387,16 +374,20 @@ def _pedir_campos(tabla: Tabla, entidad: Any = None) -> dict | None:
     return datos
 
 
-def _pedir_id() -> int | None:
-    """Pide un id numérico. Devuelve None si el usuario deja la entrada vacía."""
+def _pedir_numero(maximo: int) -> int | None:
+    """Pide un número de fila entre 1 y `maximo`. None si cancela."""
     while True:
-        raw = input("ID: ").strip()
+        raw = input("Número: ").strip()
         if raw == "":
             return None
         try:
-            return int(raw)
+            n = int(raw)
         except ValueError:
             print("Debe ser un número.")
+            continue
+        if 1 <= n <= maximo:
+            return n
+        print(f"Ingresá un número entre 1 y {maximo}.")
 
 
 def _mostrar_error_validacion(error: ValidationError) -> None:
@@ -414,14 +405,18 @@ def _mostrar_error_validacion(error: ValidationError) -> None:
 
 
 def _ver(tabla: Tabla) -> None:
-    """Lista todos los registros de la tabla."""
+    """Lista todos los registros de la tabla, con número de fila."""
     entidades = tabla.fabrica_servicio().leer_todos()
     if not entidades:
         print("No hay nada cargado.")
         return
-    filas = [_entidad_a_fila(tabla, e) for e in entidades]
+    filas = []
+    for i, e in enumerate(entidades, start=1):
+        fila = _entidad_a_fila(tabla, e)
+        fila["#"] = i
+        filas.append(fila)
     print()
-    print(render_tabla(filas, tabla.columnas))
+    print(render_tabla(filas, (("#", "#"),) + tabla.columnas))
     print(_contar(tabla, len(entidades)) + ".")
 
 
@@ -447,18 +442,17 @@ def _crear(tabla: Tabla) -> None:
 def _editar(tabla: Tabla) -> None:
     """Edita solo los campos que elija el usuario de un registro existente."""
     servicio = tabla.fabrica_servicio()
-    if not servicio.leer_todos():
+    entidades = servicio.leer_todos()
+    if not entidades:
         print("No hay nada cargado.")
         return
 
     _ver(tabla)
-    entidad_id = _pedir_id()
-    if entidad_id is None:
+    numero = _pedir_numero(len(entidades))
+    if numero is None:
         return
-    entidad = servicio.leer_por_id(entidad_id)
-    if entidad is None:
-        print("No existe ese id.")
-        return
+    entidad = entidades[numero - 1]
+    clave = tabla.clave_de(entidad)
 
     campos = list(tabla.campos)
     print()
@@ -470,10 +464,7 @@ def _editar(tabla: Tabla) -> None:
         print("Cancelado.")
         return
 
-    # Los cambios se juntan en un dict y se validan todos juntos al armar la
-    # entidad nueva, así un dato inválido no deja la original a medio modificar.
     datos = {campo.clave: getattr(entidad, campo.clave) for campo in campos}
-    datos["id"] = entidad.id
     for indice in seleccion:
         campo = campos[indice - 1]
         valor = _pedir_campo(campo, datos[campo.clave])
@@ -487,7 +478,7 @@ def _editar(tabla: Tabla) -> None:
         return
 
     try:
-        servicio.actualizar(nueva)
+        servicio.actualizar(clave, nueva)
     except ValueError as error:
         print(f"No se pudo guardar: {error}")
         return
@@ -495,26 +486,26 @@ def _editar(tabla: Tabla) -> None:
 
 
 def _eliminar(tabla: Tabla) -> None:
-    """Borra un registro por id, previa confirmación."""
+    """Borra un registro por número de fila, previa confirmación."""
     servicio = tabla.fabrica_servicio()
-    if not servicio.leer_todos():
+    entidades = servicio.leer_todos()
+    if not entidades:
         print("No hay nada cargado.")
         return
 
     _ver(tabla)
-    entidad_id = _pedir_id()
-    if entidad_id is None:
+    numero = _pedir_numero(len(entidades))
+    if numero is None:
         return
-    if servicio.leer_por_id(entidad_id) is None:
-        print("No existe ese id.")
-        return
+    entidad = entidades[numero - 1]
+    clave = tabla.clave_de(entidad)
 
-    confirmar = input(f"¿Borrar el registro {entidad_id}? (s/N): ").strip().lower()
+    confirmar = input(f"¿Borrar '{tabla.texto(entidad)}'? (s/N): ").strip().lower()
     if confirmar not in ("s", "si", "sí"):
         print("Cancelado.")
         return
     try:
-        servicio.eliminar(entidad_id)
+        servicio.eliminar(clave)
     except ValueError as error:
         print(f"No se pudo borrar: {error}")
         return
@@ -578,26 +569,28 @@ def _menu_tabla(tabla: Tabla) -> None:
             _buscar(tabla)
 
 
-def _menu_principal() -> None:
+def _menu_principal(tablas: list[Tabla]) -> None:
     """Menú principal con la lista de tablas."""
-    claves = [t.clave for t in TABLAS]
     while True:
         print()
-        for i, tabla in enumerate(TABLAS, start=1):
+        for i, tabla in enumerate(tablas, start=1):
             print(f"  {i}. {tabla.etiqueta}")
         print("  0. Salir")
 
-        opcion = _pedir_opcion(len(TABLAS))
+        opcion = _pedir_opcion(len(tablas))
         if opcion == 0:
             print("Chau.")
             return
-        _menu_tabla(CATALOGO[claves[opcion - 1]])
+        _menu_tabla(tablas[opcion - 1])
 
 
-def main() -> None:
+def main(conexion: ConexionDB | None = None) -> None:
     """Punto de entrada de la aplicación de consola."""
+    conexion = conexion or ConexionDB()
+    tablas = _construir_tablas(conexion)
+    CATALOGO.update({t.clave: t for t in tablas})
     try:
-        _menu_principal()
+        _menu_principal(tablas)
     except (KeyboardInterrupt, EOFError):
         print()
         print("Chau.")

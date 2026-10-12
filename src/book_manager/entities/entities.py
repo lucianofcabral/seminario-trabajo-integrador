@@ -1,3 +1,10 @@
+"""Entidades del dominio: validación con Pydantic, sin id de persistencia.
+
+La identidad de cada entidad es su clave natural (ISBN, código, nombre, proveedor,
+tipo), no un id de base de datos. Las relaciones se modelan como referencias a
+objetos: un `Libro` guarda su `Editorial` y su `Genero` completos.
+"""
+
 from datetime import date
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -6,27 +13,11 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 class EntidadBase(BaseModel):
     """Base de todas las entidades del sistema.
 
-    Encapsula el estado de cada objeto: los datos se validan al crearlo y también
-    cada vez que se modifica un atributo, por lo que una entidad nunca queda en un
-    estado inválido. El `id` lo asigna el repositorio al guardarla.
+    Encapsula el estado: los datos se validan al crear el objeto y también cada
+    vez que se asigna un atributo, por lo que una entidad nunca queda inválida.
     """
 
     model_config = ConfigDict(validate_assignment=True, str_strip_whitespace=True)
-
-    id: int | None = None
-
-
-class Libro(EntidadBase):
-    """Título del catálogo de la librería.
-
-    Referencia a su editorial y a su género por id.
-    """
-
-    isbn: str = Field(..., min_length=10, max_length=17, description="ISBN del libro")
-    titulo: str = Field(..., min_length=3, description="Título del libro")
-    autor: str = Field(..., min_length=3, description="Autor del libro")
-    editorial_id: int = Field(..., description="ID de la editorial")
-    genero_id: int = Field(..., description="ID del género")
 
 
 class Genero(EntidadBase):
@@ -52,13 +43,6 @@ class Editorial(EntidadBase):
     )
 
 
-class Stock(EntidadBase):
-    """Cantidad disponible de un libro."""
-
-    libro_id: int = Field(..., description="ID del libro")
-    existencia: int = Field(0, ge=0, description="Cantidad de libros en stock actual")
-
-
 class Moneda(EntidadBase):
     """Moneda en la que se puede expresar un precio (ARS, USD, etc.)."""
 
@@ -73,40 +57,48 @@ class Moneda(EntidadBase):
     @field_validator("codigo")
     @classmethod
     def a_mayusculas(cls, v: str) -> str:
-        """Normaliza el código a mayúsculas y sin espacios.
-
-        Args:
-            v: Código ingresado.
-
-        Returns:
-            El código normalizado, p. ej. " usd" -> "USD".
-        """
+        """Normaliza el código a mayúsculas y sin espacios."""
         return v.upper().replace(" ", "")
-
-
-class Precio(EntidadBase):
-    """Valor de un libro expresado en una moneda determinada."""
-
-    libro_id: int = Field(..., description="ID del libro")
-    moneda_id: int = Field(..., description="ID de la moneda")
-    valor: float = Field(
-        ..., ge=0, description="Valor del libro expresado en la moneda"
-    )
 
 
 class TipoCotizacion(EntidadBase):
     """Tipo de cotización del dólar (Oficial, Blue, MEP, etc.)."""
 
     tipo: str = Field(
-        ...,
-        min_length=1,
-        description="Tipo de cotización del dolar, ejemplo: 'BLUE', 'MEP', etc.",
+        ..., min_length=1, description="Tipo de cotización, p. ej. 'Blue', 'MEP'"
+    )
+
+
+class Libro(EntidadBase):
+    """Título del catálogo de la librería; referencia su editorial y su género."""
+
+    isbn: str = Field(..., min_length=10, max_length=17, description="ISBN del libro")
+    titulo: str = Field(..., min_length=3, description="Título del libro")
+    autor: str = Field(..., min_length=3, description="Autor del libro")
+    editorial: Editorial = Field(..., description="Editorial del libro")
+    genero: Genero = Field(..., description="Género del libro")
+
+
+class Stock(EntidadBase):
+    """Cantidad disponible de un libro."""
+
+    libro: Libro = Field(..., description="Libro del stock")
+    existencia: int = Field(0, ge=0, description="Cantidad de libros en stock actual")
+
+
+class Precio(EntidadBase):
+    """Valor de un libro expresado en una moneda determinada."""
+
+    libro: Libro = Field(..., description="Libro del precio")
+    moneda: Moneda = Field(..., description="Moneda del precio")
+    valor: float = Field(
+        ..., ge=0, description="Valor del libro expresado en la moneda"
     )
 
 
 class CotizacionDolar(EntidadBase):
     """Registro histórico del valor del dólar para un tipo y una fecha."""
 
-    tipo_cotizacion_id: int = Field(..., description="ID del tipo de cotización")
+    tipo_cotizacion: TipoCotizacion = Field(..., description="Tipo de cotización")
     fecha: date = Field(..., description="Fecha de la cotización")
-    valor_pesos: float = Field(..., gt=0, description="Valor del dolar en la fecha")
+    valor_pesos: float = Field(..., gt=0, description="Valor del dólar en pesos")

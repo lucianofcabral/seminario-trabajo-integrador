@@ -1,38 +1,14 @@
-"""Fixtures y helpers compartidos para los tests."""
+"""Fixtures compartidos para los tests."""
 
 import csv
 from pathlib import Path
 
 import pytest
 
-from book_manager.repositories import repositories as repos
-
-ARCHIVOS_CSV = {
-    repos.RepoLibroCSV: "libro.csv",
-    repos.RepoGeneroCSV: "genero.csv",
-    repos.RepoEditorialCSV: "editorial.csv",
-    repos.RepoMonedaCSV: "moneda.csv",
-    repos.RepoStockCSV: "stock.csv",
-    repos.RepoPrecioCSV: "precio.csv",
-    repos.RepoTipoCotizacionCSV: "tipo_cotizacion.csv",
-    repos.RepoCotizacionDolarCSV: "cotizacion.csv",
-}
-
-
-@pytest.fixture(autouse=True)
-def csv_temporales(monkeypatch, tmp_path):
-    """Redirige todos los repositorios a CSV temporales.
-
-    Así ningún test lee ni modifica los datos reales de `migrations/csv`.
-    """
-    for repo_cls, nombre in ARCHIVOS_CSV.items():
-        monkeypatch.setattr(repo_cls, "ruta", tmp_path / nombre)
-
-
-@pytest.fixture
-def repos_csv() -> list[type]:
-    """Las clases de todos los repositorios CSV."""
-    return list(ARCHIVOS_CSV)
+from book_manager.database.connection import ConexionDB
+from book_manager.migrations.migrations import poblar_base_de_datos
+from book_manager.models.models import Base
+from book_manager.rutas import SQL_FOLDER_PATH
 
 
 def _escribir_csv(path: Path, filas: list[dict]) -> Path:
@@ -54,14 +30,16 @@ def escribir_csv():
 
 
 @pytest.fixture
-def repo_factory(monkeypatch, escribir_csv):
-    """Instancia un repo concreto con su `ruta` redirigida a un CSV temporal."""
+def conexion(tmp_path):
+    """Conexión a SQLite con las tablas creadas y sin datos."""
+    conexion = ConexionDB(f"sqlite:///{tmp_path / 'test.db'}")
+    Base.metadata.create_all(conexion.engine)
+    return conexion
 
-    def _factory(repo_cls, tmp_path, nombre="test.csv", filas=None):
-        path = tmp_path / nombre
-        if filas is not None:
-            escribir_csv(path, filas)
-        monkeypatch.setattr(repo_cls, "ruta", path, raising=False)
-        return repo_cls()
 
-    return _factory
+@pytest.fixture
+def conexion_poblada(tmp_path):
+    """Conexión a SQLite con los datos de ejemplo del TP1 cargados."""
+    conexion = ConexionDB(f"sqlite:///{tmp_path / 'test.db'}")
+    poblar_base_de_datos(conexion, str(SQL_FOLDER_PATH))
+    return conexion
