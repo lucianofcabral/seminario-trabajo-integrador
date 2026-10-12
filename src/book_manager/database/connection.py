@@ -1,7 +1,7 @@
 """Conexión a la base de datos PostgreSQL con SQLAlchemy."""
 
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from dotenv import load_dotenv
@@ -48,7 +48,7 @@ class ConexionDB:
         return self._session_factory()
 
     @contextmanager
-    def transaccion(self) -> Iterator[Session]:
+    def transaccion(self) -> Generator[Session, None, None]:
         """Abre una transacción: commit al salir sin error, rollback ante fallo.
 
         Yields:
