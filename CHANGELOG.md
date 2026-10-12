@@ -2,6 +2,12 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 02]
+
+- `ConexionDB` en `database/connection.py`: motor y fábrica de sesiones con SQLAlchemy.
+- URL de conexión construida desde variables de entorno (`.env`) con `sslmode=require`.
+- Tests de la conexión en `tests/test_connection.py`.
+
 ## [Ejercicio 01]
 
 - Rama `Sprint_2` creada desde `Sprint_1`.
