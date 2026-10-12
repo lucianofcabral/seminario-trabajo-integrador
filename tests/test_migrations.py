@@ -15,16 +15,19 @@ def test_migrar_datos_genera_sqls(tmp_path, escribir_csv):
     carpeta_csvs.mkdir()
 
     escribir_csv(carpeta_csvs / "genero.csv", [{"id": 1, "genero": "Ficción"}])
-    escribir_csv(carpeta_csvs / "libro.csv", [
-        {
-            "id": 1,
-            "isbn": "9780306406157",
-            "titulo": "El eco del silencio",
-            "autor": "Marina Solís",
-            "editorial_id": 1,
-            "genero_id": 1,
-        }
-    ])
+    escribir_csv(
+        carpeta_csvs / "libro.csv",
+        [
+            {
+                "id": 1,
+                "isbn": "9780306406157",
+                "titulo": "El eco del silencio",
+                "autor": "Marina Solís",
+                "editorial_id": 1,
+                "genero_id": 1,
+            }
+        ],
+    )
 
     migrar_datos(str(carpeta_csvs), str(carpeta_sqls))
 

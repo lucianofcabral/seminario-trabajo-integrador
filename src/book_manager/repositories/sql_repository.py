@@ -35,7 +35,6 @@ from book_manager.repositories.repositories import (
     IRepositorioTipoCotizacion,
 )
 
-
 # --- conversión modelo ORM -> entidad ---
 
 
@@ -98,7 +97,9 @@ def _cotizacion_entidad(modelo: m.CotizacionDolar) -> CotizacionDolar:
 
 
 def _id_editorial(sesion: Session, proveedor: str) -> int:
-    modelo = sesion.scalar(select(m.Editorial).where(m.Editorial.proveedor == proveedor))
+    modelo = sesion.scalar(
+        select(m.Editorial).where(m.Editorial.proveedor == proveedor)
+    )
     if modelo is None:
         raise ValueError(f"No existe la editorial {proveedor!r}.")
     return modelo.id
@@ -120,7 +121,9 @@ def _id_moneda(sesion: Session, codigo: str) -> int:
 
 
 def _id_tipo(sesion: Session, tipo: str) -> int:
-    modelo = sesion.scalar(select(m.TipoCotizacion).where(m.TipoCotizacion.tipo == tipo))
+    modelo = sesion.scalar(
+        select(m.TipoCotizacion).where(m.TipoCotizacion.tipo == tipo)
+    )
     if modelo is None:
         raise ValueError(f"No existe el tipo de cotización {tipo!r}.")
     return modelo.id
@@ -155,7 +158,9 @@ class RepoSqlBase[T, M]:
     def _buscar(self, sesion: Session, clave: Any):  # pragma: no cover - abstracto
         raise NotImplementedError
 
-    def _aplicar(self, modelo: M, entidad: T, sesion: Session) -> None:  # pragma: no cover
+    def _aplicar(
+        self, modelo: M, entidad: T, sesion: Session
+    ) -> None:  # pragma: no cover
         raise NotImplementedError
 
     def crear(self, entidad: T) -> T:
@@ -163,7 +168,9 @@ class RepoSqlBase[T, M]:
             with self._conexion.transaccion() as sesion:
                 sesion.add(self._a_modelo(entidad, sesion))
         except IntegrityError as error:
-            raise ValueError("Ya existe un registro con la misma clave natural.") from error
+            raise ValueError(
+                "Ya existe un registro con la misma clave natural."
+            ) from error
         return entidad
 
     def leer_todos(self) -> list[T]:
@@ -179,7 +186,9 @@ class RepoSqlBase[T, M]:
                     raise ValueError(f"No se encontró el registro con clave {clave!r}.")
                 self._aplicar(modelo, entidad, sesion)
         except IntegrityError as error:
-            raise ValueError("Ya existe un registro con la misma clave natural.") from error
+            raise ValueError(
+                "Ya existe un registro con la misma clave natural."
+            ) from error
         return entidad
 
     def eliminar(self, clave: Any) -> bool:
@@ -247,7 +256,9 @@ class RepoEditorialSQL(RepoSqlBase[Editorial, m.Editorial], IRepositorioEditoria
     def _buscar(self, sesion: Session, clave: str):
         return sesion.scalar(select(m.Editorial).where(m.Editorial.proveedor == clave))
 
-    def _aplicar(self, modelo: m.Editorial, entidad: Editorial, sesion: Session) -> None:
+    def _aplicar(
+        self, modelo: m.Editorial, entidad: Editorial, sesion: Session
+    ) -> None:
         modelo.proveedor = entidad.proveedor
         modelo.pais = entidad.pais
         modelo.provincia = entidad.provincia
@@ -356,7 +367,11 @@ class RepoLibroSQL(RepoSqlBase[Libro, m.Libro], IRepositorioLibro):
 
     def leer_por_editorial(self, proveedor: str) -> list[Libro]:
         with self._conexion.crear_sesion() as sesion:
-            stmt = self._select().join(m.Editorial).where(m.Editorial.proveedor == proveedor)
+            stmt = (
+                self._select()
+                .join(m.Editorial)
+                .where(m.Editorial.proveedor == proveedor)
+            )
             return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
 
     def leer_por_genero(self, genero: str) -> list[Libro]:
@@ -384,9 +399,7 @@ class RepoStockSQL(RepoSqlBase[Stock, m.Stock], IRepositorioStock):
         )
 
     def _buscar(self, sesion: Session, clave: str):
-        return sesion.scalar(
-            select(m.Stock).join(m.Libro).where(m.Libro.isbn == clave)
-        )
+        return sesion.scalar(select(m.Stock).join(m.Libro).where(m.Libro.isbn == clave))
 
     def _aplicar(self, modelo: m.Stock, entidad: Stock, sesion: Session) -> None:
         modelo.libro_id = _id_libro(sesion, entidad.libro.isbn)

@@ -5,14 +5,12 @@ from sqlalchemy.orm import Session
 
 from book_manager.models.models import (
     Base,
-    CotizacionDolar,
     Editorial,
     Genero,
     Libro,
     Moneda,
     Precio,
     Stock,
-    TipoCotizacion,
 )
 
 TABLAS = {

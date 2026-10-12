@@ -188,7 +188,9 @@ class ServicioStock(ServicioBase[Stock]):
         stock = self._repo.leer_por_libro(isbn)
         if stock is None:
             raise ValueError(f"No se encontró stock para el libro {isbn}.")
-        return self.actualizar(isbn, stock.model_copy(update={"existencia": existencia}))
+        return self.actualizar(
+            isbn, stock.model_copy(update={"existencia": existencia})
+        )
 
     def _validar(self, stock: Stock) -> None:
         if self._repo_libro.leer_por_isbn(stock.libro.isbn) is None:

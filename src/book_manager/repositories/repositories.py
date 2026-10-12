@@ -138,9 +138,7 @@ class IRepositorioCotizacionDolar(IRepositorio[CotizacionDolar]):
     """Contrato para cotizaciones. Clave natural: (tipo, fecha)."""
 
     @abstractmethod
-    def leer_por_tipo_y_fecha(
-        self, tipo: str, fecha: date
-    ) -> CotizacionDolar | None:
+    def leer_por_tipo_y_fecha(self, tipo: str, fecha: date) -> CotizacionDolar | None:
         """Lee la cotización de un tipo en una fecha, o None si no existe."""
         ...
 

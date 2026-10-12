@@ -224,7 +224,9 @@ def _entidad_a_fila(tabla: Tabla, entidad: Any) -> dict:
         campo = _campo_de(tabla, clave)
         valor = getattr(entidad, clave, None)
         if campo is not None and campo.tipo == "fk":
-            fila[clave] = CATALOGO[campo.fk_tabla].texto(valor) if valor is not None else ""
+            fila[clave] = (
+                CATALOGO[campo.fk_tabla].texto(valor) if valor is not None else ""
+            )
         else:
             fila[clave] = valor
     return fila

@@ -116,9 +116,7 @@ class CotizacionDolar(Base):
     __tablename__ = "cotizacion"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tipo_cotizacion_id: Mapped[int] = mapped_column(
-        ForeignKey("tipo_cotizacion.id")
-    )
+    tipo_cotizacion_id: Mapped[int] = mapped_column(ForeignKey("tipo_cotizacion.id"))
     fecha: Mapped[date] = mapped_column(Date)
     valor_pesos: Mapped[float] = mapped_column(Float)
 

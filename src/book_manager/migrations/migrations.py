@@ -78,10 +78,7 @@ def _leer_csv(csv_path: Path) -> tuple[list[str], list[dict[str, str]]]:
 def _insert_sql(tabla: str, columnas: list[str], fila: dict[str, str]) -> str:
     """Arma la sentencia INSERT de una fila."""
     valores = [_valor_sql(tabla, columna, fila[columna]) for columna in columnas]
-    return (
-        f"INSERT INTO {tabla} ({', '.join(columnas)}) "
-        f"VALUES ({', '.join(valores)});"
-    )
+    return f"INSERT INTO {tabla} ({', '.join(columnas)}) VALUES ({', '.join(valores)});"
 
 
 def _valor_sql(tabla: str, columna: str, valor: str) -> str:

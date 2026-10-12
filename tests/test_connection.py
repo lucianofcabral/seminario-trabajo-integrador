@@ -58,10 +58,9 @@ def test_transaccion_hace_rollback_ante_error(tmp_path):
             text("CREATE TABLE prueba (id INTEGER PRIMARY KEY, nombre TEXT)")
         )
 
-    with pytest.raises(RuntimeError):
-        with conexion.transaccion() as sesion:
-            sesion.execute(text("INSERT INTO prueba (nombre) VALUES ('a')"))
-            raise RuntimeError("fallo")
+    with pytest.raises(RuntimeError), conexion.transaccion() as sesion:
+        sesion.execute(text("INSERT INTO prueba (nombre) VALUES ('a')"))
+        raise RuntimeError("fallo")
 
     with conexion.transaccion() as sesion:
         assert sesion.execute(text("SELECT COUNT(*) FROM prueba")).scalar() == 0
