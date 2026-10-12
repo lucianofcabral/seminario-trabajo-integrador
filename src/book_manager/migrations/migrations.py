@@ -31,18 +31,28 @@ def migrar_datos(carpeta_csvs: str, carpeta_sqls: str) -> None:
 
 
 def poblar_base_de_datos(conexion: ConexionDB, carpeta_sqls: str) -> None:
-    """Crea las tablas y ejecuta los `.sql` en orden de dependencias (FK)."""
+    """Crea las tablas y ejecuta los `.sql` en orden de dependencias (FK).
+
+    En PostgreSQL ejecuta todas las sentencias de cada tabla en un solo
+    round-trip (psycopg3 lo permite); en SQLite lo hace sentencia por sentencia.
+    """
     Base.metadata.create_all(conexion.engine)
+    es_postgres = conexion.engine.dialect.name == "postgresql"
 
     for tabla in Base.metadata.sorted_tables:
         sql_path = Path(carpeta_sqls) / f"{tabla.name}.sql"
         if not sql_path.exists():
             continue
         with conexion.transaccion() as sesion:
-            for linea in sql_path.read_text(encoding="utf-8").splitlines():
-                sentencia = linea.strip().rstrip(";")
-                if sentencia:
-                    sesion.execute(text(sentencia))
+            if es_postgres:
+                sesion.connection().exec_driver_sql(
+                    sql_path.read_text(encoding="utf-8")
+                )
+            else:
+                for linea in sql_path.read_text(encoding="utf-8").splitlines():
+                    sentencia = linea.strip().rstrip(";")
+                    if sentencia:
+                        sesion.execute(text(sentencia))
 
     _resetear_secuencias(conexion)
 
