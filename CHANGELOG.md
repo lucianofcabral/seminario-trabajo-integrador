@@ -2,6 +2,13 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 05]
+
+- `migrations/migrations.py`: `migrar_datos(carpeta_csvs, carpeta_sqls)` lee los CSV del TP1 y genera un `.sql` con los INSERT por tabla.
+- `poblar_base_de_datos(conexion, carpeta_sqls)`: crea las tablas y ejecuta los `.sql` en orden de dependencias (FK).
+- `.sql` generados y almacenados en `migrations/sql/`.
+- Tests en `tests/test_migrations.py`.
+
 ## [Ejercicio 04]
 
 - Modelos ORM en `models/models.py`: 8 tablas con `Base` declarativa (SQLAlchemy 2.0, `Mapped`/`mapped_column`).

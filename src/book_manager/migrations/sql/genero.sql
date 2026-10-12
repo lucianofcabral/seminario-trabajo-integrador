@@ -1,0 +1,10 @@
+INSERT INTO genero (id, genero) VALUES (1, 'Ficción');
+INSERT INTO genero (id, genero) VALUES (2, 'Terror');
+INSERT INTO genero (id, genero) VALUES (3, 'Ciencia ficción');
+INSERT INTO genero (id, genero) VALUES (4, 'Fantasía');
+INSERT INTO genero (id, genero) VALUES (5, 'Romance');
+INSERT INTO genero (id, genero) VALUES (6, 'Misterio / Policial');
+INSERT INTO genero (id, genero) VALUES (7, 'Thriller / Suspenso');
+INSERT INTO genero (id, genero) VALUES (8, 'Biografía');
+INSERT INTO genero (id, genero) VALUES (9, 'Ensayo');
+INSERT INTO genero (id, genero) VALUES (10, 'Poesía');
