@@ -2,6 +2,11 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 03]
+
+- Context manager `transaccion()` en `database/connection.py`: commit al salir sin error, rollback ante excepción y cierre de la sesión.
+- Tests de commit y rollback en `tests/test_connection.py`.
+
 ## [Ejercicio 02]
 
 - `ConexionDB` en `database/connection.py`: motor y fábrica de sesiones con SQLAlchemy.

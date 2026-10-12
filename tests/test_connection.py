@@ -1,5 +1,6 @@
 """Tests de la conexión a la base de datos (ConexionDB)."""
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -32,3 +33,35 @@ def test_crear_sesion_con_url_explicita():
     with conexion.crear_sesion() as sesion:
         assert isinstance(sesion, Session)
         assert sesion.execute(text("SELECT 1")).scalar() == 1
+
+
+def test_transaccion_commitea_al_salir(tmp_path):
+    """Confirma los cambios cuando el bloque termina sin error."""
+    conexion = ConexionDB(f"sqlite:///{tmp_path / 't.db'}")
+
+    with conexion.transaccion() as sesion:
+        sesion.execute(
+            text("CREATE TABLE prueba (id INTEGER PRIMARY KEY, nombre TEXT)")
+        )
+        sesion.execute(text("INSERT INTO prueba (nombre) VALUES ('a')"))
+
+    with conexion.transaccion() as sesion:
+        assert sesion.execute(text("SELECT COUNT(*) FROM prueba")).scalar() == 1
+
+
+def test_transaccion_hace_rollback_ante_error(tmp_path):
+    """Deshace los cambios cuando el bloque lanza una excepción."""
+    conexion = ConexionDB(f"sqlite:///{tmp_path / 't.db'}")
+
+    with conexion.transaccion() as sesion:
+        sesion.execute(
+            text("CREATE TABLE prueba (id INTEGER PRIMARY KEY, nombre TEXT)")
+        )
+
+    with pytest.raises(RuntimeError):
+        with conexion.transaccion() as sesion:
+            sesion.execute(text("INSERT INTO prueba (nombre) VALUES ('a')"))
+            raise RuntimeError("fallo")
+
+    with conexion.transaccion() as sesion:
+        assert sesion.execute(text("SELECT COUNT(*) FROM prueba")).scalar() == 0
