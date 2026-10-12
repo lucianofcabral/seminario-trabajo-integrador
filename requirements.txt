@@ -1,3 +1,6 @@
 babel>=2.12
+psycopg[binary]>=3.2
 pycountry>=22.3
 pydantic[email]>=2.5
+python-dotenv>=1.0
+sqlalchemy>=2.0

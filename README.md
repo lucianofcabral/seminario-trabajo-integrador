@@ -1,17 +1,27 @@
 # book-manager
 
-**Sprint actual: Sprint 1**
+**Sprint actual: Sprint 2**
 
 Gestor de libros por terminal. Lleva el registro de libros, editoriales, géneros,
-stock y precios en archivos CSV, sin base de datos. CRUD completo desde un menú
+stock y precios en una base de datos relacional (SQLAlchemy sobre PostgreSQL/Supabase),
+con migración desde CSV, consultas a la API del dólar y CRUD completo desde un menú
 interactivo.
 
 ## Objetivo
 
-Aplicar los conocimientos adquiridos en programación orientada a objetos y en
-almacenamiento de datos en archivos para su persistencia.
+Aplicar los conocimientos adquiridos en programación orientada a objetos, en bases
+de datos relacionales y en consumo de APIs externas, migrando la persistencia en
+archivos del Sprint 1 a una base de datos relacional con SQLAlchemy.
 
 ## Introducción y contexto
+
+### Sprint 2
+
+En esta entrega se migra la persistencia en archivos CSV a una base de datos
+relacional usando SQLAlchemy sobre Supabase (PostgreSQL). Se normalizan las tablas,
+se implementa una conexión segura mediante variables de entorno, se precarga la base
+desde los CSV del Sprint 1 y se consulta la API del dólar para registrar cotizaciones
+y ofrecer precios bimonetarios con exportación a CSV.
 
 ### Sprint 1
 

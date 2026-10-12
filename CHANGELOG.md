@@ -2,6 +2,13 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 01]
+
+- Rama `Sprint_2` creada desde `Sprint_1`.
+- Estructura del Sprint 2: paquetes `database/` y `models/`, carpeta `migrations/sql/` y `.env.example`.
+- Dependencias: `sqlalchemy`, `python-dotenv` y `psycopg[binary]`.
+- README actualizado al Sprint 2 con objetivo y contexto.
+
 ## [Ejercicio 05]
 
 - Corrección del autor del libro 23 ("Órbita rota") en `libro.csv`.
