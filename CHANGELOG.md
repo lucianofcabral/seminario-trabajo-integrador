@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 07]
+
+- `requests` como dependencia para consumir la API del dólar.
+- `ServicioCotizacionDolar.obtener_cotizaciones()`: descarga desde `API_URL` (`.env`), crea los tipos que falten y registra una cotización por tipo (idempotente).
+- Mapeo de `casa` de la API (oficial, blue, bolsa, contadoconliqui, ...) a los tipos del dominio.
+- `API_URL` se lee de `.env` con un default público si no está configurada.
+- Test en `tests/test_services.py`.
+
 ## [Ejercicio 06]
 
 - Entidades sin `id`: la identidad es la clave natural (ISBN, código, proveedor, género, tipo) y las relaciones son referencias a objetos (`Libro.editorial` es un `Editorial`).

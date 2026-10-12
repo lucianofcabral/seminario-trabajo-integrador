@@ -3,4 +3,5 @@ psycopg[binary]>=3.2
 pycountry>=22.3
 pydantic[email]>=2.5
 python-dotenv>=1.0
+requests>=2.31
 sqlalchemy>=2.0

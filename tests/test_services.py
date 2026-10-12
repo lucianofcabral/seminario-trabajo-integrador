@@ -1,9 +1,13 @@
 """Tests de la capa de servicios (reglas de negocio sobre SQL)."""
 
+from datetime import date
+
 import pytest
 
 from book_manager.entities.entities import Editorial, Genero, Libro
+from book_manager.services import services as svc
 from book_manager.services.services import (
+    ServicioCotizacionDolar,
     ServicioGenero,
     ServicioLibro,
 )
@@ -56,3 +60,30 @@ def test_eliminar_libro_borra_stock_y_precios(conexion_poblada):
 
     assert servicio.stock_de(isbn) is None
     assert servicio.precios_de(isbn) == []
+
+
+def test_obtener_cotizaciones_registra(conexion, monkeypatch):
+    """Descarga de la API y registra una cotización por tipo."""
+    servicio = ServicioCotizacionDolar(conexion=conexion)
+    monkeypatch.setattr(
+        svc,
+        "_descargar_cotizaciones",
+        lambda: [
+            {
+                "casa": "blue",
+                "venta": 1240.0,
+                "fechaActualizacion": "2026-01-01T00:00:00-03:00",
+            },
+            {
+                "casa": "oficial",
+                "venta": 1115.0,
+                "fechaActualizacion": "2026-01-01T00:00:00-03:00",
+            },
+        ],
+    )
+
+    registradas = servicio.obtener_cotizaciones()
+
+    assert len(registradas) == 2
+    assert servicio.cotizacion_del_dia("Blue", date(2026, 1, 1)) is not None
+    assert servicio.cotizacion_del_dia("Oficial", date(2026, 1, 1)) is not None

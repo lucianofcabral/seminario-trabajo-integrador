@@ -4,7 +4,11 @@ Los servicios validan que las referencias existan, impiden borrar registros en
 uso y resuelven las relaciones. Trabajan con las claves naturales de cada entidad.
 """
 
-from datetime import date
+import os
+from datetime import date, datetime
+
+import requests
+from dotenv import load_dotenv
 
 from book_manager.database.connection import ConexionDB
 from book_manager.entities.entities import (
@@ -39,6 +43,34 @@ from book_manager.repositories.sql_repository import (
     RepoStockSQL,
     RepoTipoCotizacionSQL,
 )
+
+load_dotenv()
+
+_CASA_A_TIPO: dict[str, str] = {
+    "oficial": "Oficial",
+    "blue": "Blue",
+    "bolsa": "MEP",
+    "contadoconliqui": "CCL",
+    "mayorista": "Mayorista",
+    "cripto": "Cripto",
+    "tarjeta": "Tarjeta",
+    "solidario": "Solidario",
+    "blend": "Blend",
+    "turista": "Turista",
+}
+
+
+def _descargar_cotizaciones() -> list[dict]:
+    """Descarga las cotizaciones del dólar desde la API configurada en `.env`."""
+    url = os.environ.get("API_URL", "https://dolarapi.com/v1/dolares")
+    respuesta = requests.get(url, timeout=10)
+    respuesta.raise_for_status()
+    return respuesta.json()
+
+
+def _fecha_de(item: dict) -> date:
+    """Extrae la fecha de la cotización desde `fechaActualizacion`."""
+    return datetime.fromisoformat(item["fechaActualizacion"]).date()
 
 
 class ServicioBase[T: EntidadBase]:
@@ -276,3 +308,31 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
             raise ValueError(
                 f"No existe el tipo de cotización {cotizacion.tipo_cotizacion.tipo!r}."
             )
+
+    def obtener_cotizaciones(self) -> list[CotizacionDolar]:
+        """Busca, descarga y registra las cotizaciones del dólar en la base.
+
+        Crea los tipos de cotización que falten y registra una cotización por
+        tipo. Es idempotente: no duplica un tipo para una misma fecha.
+
+        Returns:
+            Las cotizaciones registradas en esta ejecución.
+        """
+        registradas: list[CotizacionDolar] = []
+        for item in _descargar_cotizaciones():
+            tipo_nombre = _CASA_A_TIPO.get(item.get("casa"))
+            if tipo_nombre is None:
+                continue
+            tipo = self._repo_tipo.leer_por_tipo(tipo_nombre)
+            if tipo is None:
+                tipo = self._repo_tipo.crear(TipoCotizacion(tipo=tipo_nombre))
+            fecha = _fecha_de(item)
+            if self._repo.leer_por_tipo_y_fecha(tipo_nombre, fecha) is not None:
+                continue
+            cotizacion = CotizacionDolar(
+                tipo_cotizacion=tipo,
+                fecha=fecha,
+                valor_pesos=float(item["venta"]),
+            )
+            registradas.append(self.crear(cotizacion))
+        return registradas
