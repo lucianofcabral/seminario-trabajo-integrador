@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 08]
+
+- Menú principal con 3 opciones nuevas: obtener cotizaciones por API, precios bimonetarios y exportar precios a CSV.
+- `_precio_en`: conversión entre USD y ARS usando la última cotización (Oficial o Blue).
+- `_exportar_precios_csv`: exporta un pivote libros × monedas presentes.
+- `ServicioPrecio.leer_por_libro` expuesto para los reportes.
+- Tests en `tests/test_console.py`.
+
 ## [Ejercicio 07]
 
 - `requests` como dependencia para consumir la API del dólar.

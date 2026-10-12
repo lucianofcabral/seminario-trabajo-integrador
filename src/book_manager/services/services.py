@@ -244,6 +244,10 @@ class ServicioPrecio(ServicioBase[Precio]):
         self._repo_libro = repo_libro or RepoLibroSQL(conexion)
         self._repo_moneda = repo_moneda or RepoMonedaSQL(conexion)
 
+    def leer_por_libro(self, isbn: str) -> list[Precio]:
+        """Devuelve los precios de un libro, uno por moneda."""
+        return self._repo.leer_por_libro(isbn)
+
     def modificar_precio(self, isbn: str, codigo: str, valor: float) -> Precio:
         precio = self._repo.leer_por_libro_y_moneda(isbn, codigo)
         if precio is None:

@@ -4,9 +4,11 @@ Cada tabla se describe con sus campos editables y su clave natural. Las
 referencias entre entidades se muestran y piden como objetos completos, no por id.
 """
 
+import csv
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -541,6 +543,128 @@ def _buscar(tabla: Tabla) -> None:
     print(_contar(tabla, len(coincidencias)) + ".")
 
 
+# --- reportes y acciones globales ---
+
+
+def _precio_en(
+    moneda_origen: str, valor: float, cotizacion_usd: float, destino: str
+) -> float | None:
+    """Convierte un valor entre USD y ARS usando la cotización del dólar.
+
+    Solo USD y ARS tienen tasa conocida; para otras monedas devuelve None.
+    """
+    if moneda_origen == destino:
+        return valor
+    if moneda_origen == "USD" and destino == "ARS":
+        return valor * cotizacion_usd
+    if moneda_origen == "ARS" and destino == "USD":
+        return valor / cotizacion_usd
+    return None
+
+
+def _formato_precio(valor: float | None) -> str:
+    """Formatea un precio para la vista; None se muestra como raya."""
+    return "—" if valor is None else f"{valor:.2f}"
+
+
+def _ultima_cotizacion(servicio: ServicioCotizacionDolar):
+    """Devuelve la última cotización Oficial o, si no hay, la Blue."""
+    return servicio.ultima("Oficial") or servicio.ultima("Blue")
+
+
+def _obtener_cotizaciones_api(conexion: ConexionDB) -> None:
+    """Descarga y registra las cotizaciones actuales de la API del dólar."""
+    servicio = ServicioCotizacionDolar(conexion=conexion)
+    try:
+        registradas = servicio.obtener_cotizaciones()
+    except Exception as error:  # noqa: BLE001 - la consola reporta y sigue
+        print(f"No se pudo obtener: {error}")
+        return
+    print(f"Se registraron {len(registradas)} cotización(es).")
+
+
+def _precios_bimonetarios(conexion: ConexionDB) -> None:
+    """Muestra el precio de cada libro en pesos y en la moneda seleccionada."""
+    servicio_moneda = ServicioMoneda(conexion=conexion)
+    monedas = servicio_moneda.leer_todos()
+    if not monedas:
+        print("No hay monedas cargadas.")
+        return
+
+    print()
+    for i, moneda in enumerate(monedas, start=1):
+        print(f"  {i}. {moneda.codigo} — {moneda.nombre}")
+    numero = _pedir_numero(len(monedas))
+    if numero is None:
+        return
+    moneda = monedas[numero - 1]
+
+    cotizacion = _ultima_cotizacion(ServicioCotizacionDolar(conexion=conexion))
+    if cotizacion is None:
+        print("No hay cotización del dólar para convertir.")
+        return
+    tasa = cotizacion.valor_pesos
+
+    servicio_libro = ServicioLibro(conexion=conexion)
+    servicio_precio = ServicioPrecio(conexion=conexion)
+
+    filas = []
+    for libro in servicio_libro.leer_todos():
+        precios = servicio_precio.leer_por_libro(libro.isbn)
+        if not precios:
+            continue
+        precio = precios[0]
+        ars = _precio_en(precio.moneda.codigo, precio.valor, tasa, "ARS")
+        en_moneda = _precio_en(precio.moneda.codigo, precio.valor, tasa, moneda.codigo)
+        filas.append(
+            {
+                "titulo": libro.titulo,
+                "ars": _formato_precio(ars),
+                "moneda": _formato_precio(en_moneda),
+            }
+        )
+
+    if not filas:
+        print("No hay precios para mostrar.")
+        return
+
+    print()
+    print(
+        render_tabla(
+            filas,
+            (
+                ("titulo", "Libro"),
+                ("ars", "Precio (ARS)"),
+                ("moneda", f"Precio ({moneda.codigo})"),
+            ),
+        )
+    )
+
+
+def _exportar_precios_csv(conexion: ConexionDB, ruta: str = "precios.csv") -> None:
+    """Exporta los precios a CSV, una columna por moneda presente."""
+    servicio_precio = ServicioPrecio(conexion=conexion)
+    servicio_libro = ServicioLibro(conexion=conexion)
+    precios = servicio_precio.leer_todos()
+    if not precios:
+        print("No hay precios para exportar.")
+        return
+
+    monedas = sorted({precio.moneda.codigo for precio in precios})
+    with Path(ruta).open("w", newline="", encoding="utf-8") as f:
+        escritor = csv.writer(f)
+        escritor.writerow(["isbn", "titulo", *monedas])
+        for libro in servicio_libro.leer_todos():
+            del_libro = {
+                precio.moneda.codigo: precio.valor
+                for precio in servicio_precio.leer_por_libro(libro.isbn)
+            }
+            escritor.writerow(
+                [libro.isbn, libro.titulo, *(del_libro.get(c, "") for c in monedas)]
+            )
+    print(f"Exportado a {ruta}.")
+
+
 # --- menús ---
 
 
@@ -571,19 +695,30 @@ def _menu_tabla(tabla: Tabla) -> None:
             _buscar(tabla)
 
 
-def _menu_principal(tablas: list[Tabla]) -> None:
-    """Menú principal con la lista de tablas."""
+def _menu_principal(tablas: list[Tabla], conexion: ConexionDB) -> None:
+    """Menú principal: tablas CRUD + acciones globales."""
+    n = len(tablas)
     while True:
         print()
         for i, tabla in enumerate(tablas, start=1):
             print(f"  {i}. {tabla.etiqueta}")
+        print(f"  {n + 1}. Obtener cotizaciones por API")
+        print(f"  {n + 2}. Precios bimonetarios")
+        print(f"  {n + 3}. Exportar precios a CSV")
         print("  0. Salir")
 
-        opcion = _pedir_opcion(len(tablas))
+        opcion = _pedir_opcion(n + 3)
         if opcion == 0:
             print("Chau.")
             return
-        _menu_tabla(tablas[opcion - 1])
+        if opcion <= n:
+            _menu_tabla(tablas[opcion - 1])
+        elif opcion == n + 1:
+            _obtener_cotizaciones_api(conexion)
+        elif opcion == n + 2:
+            _precios_bimonetarios(conexion)
+        elif opcion == n + 3:
+            _exportar_precios_csv(conexion)
 
 
 def main(conexion: ConexionDB | None = None) -> None:
@@ -592,7 +727,7 @@ def main(conexion: ConexionDB | None = None) -> None:
     tablas = _construir_tablas(conexion)
     CATALOGO.update({t.clave: t for t in tablas})
     try:
-        _menu_principal(tablas)
+        _menu_principal(tablas, conexion)
     except (KeyboardInterrupt, EOFError):
         print()
         print("Chau.")

@@ -43,3 +43,24 @@ def test_entidad_a_fila_resuelve_fk(conexion):
     assert fila["isbn"] == "9780306406157"
     assert fila["editorial"] == "Alba"
     assert fila["genero"] == "Ficción"
+
+
+def test_precio_en_convierte_entre_usd_y_ars():
+    from book_manager.ui.console import _precio_en
+
+    assert _precio_en("USD", 100.0, 1500.0, "ARS") == 150000.0
+    assert _precio_en("ARS", 150000.0, 1500.0, "USD") == 100.0
+    assert _precio_en("USD", 100.0, 1500.0, "USD") == 100.0
+    assert _precio_en("USD", 100.0, 1500.0, "EUR") is None
+
+
+def test_exportar_precios_csv(conexion_poblada, tmp_path):
+    from book_manager.ui.console import _exportar_precios_csv
+
+    ruta = tmp_path / "precios.csv"
+    _exportar_precios_csv(conexion_poblada, str(ruta))
+
+    contenido = ruta.read_text(encoding="utf-8")
+    assert "isbn" in contenido
+    assert "titulo" in contenido
+    assert "USD" in contenido
