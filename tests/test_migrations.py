@@ -1,10 +1,12 @@
 """Tests de la migración de datos (CSV → .sql → base)."""
 
+import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from book_manager.database.connection import ConexionDB
 from book_manager.migrations.migrations import migrar_datos, poblar_base_de_datos
-from book_manager.models.models import CotizacionDolar, Libro
+from book_manager.models.models import CotizacionDolar, Genero, Libro
 from book_manager.rutas import CSV_FOLDER_PATH
 
 
@@ -63,3 +65,23 @@ def test_migrar_datos_puebla_base(tmp_path):
         assert total_cotizaciones >= 10
         assert libro.editorial is not None
         assert libro.genero is not None
+
+
+def test_poblar_es_atomico(tmp_path, escribir_csv):
+    """Si falla una tabla, no queda ninguna cargada (base sin datos a medias)."""
+    carpeta_sqls = tmp_path / "sql"
+    carpeta_sqls.mkdir()
+    (carpeta_sqls / "genero.sql").write_text(
+        "INSERT INTO genero (id, genero) VALUES (1, 'Ficción');\n", encoding="utf-8"
+    )
+    (carpeta_sqls / "libro.sql").write_text(
+        "INSERT INTO libro (id, columna_inexistente) VALUES (1, 'x');\n",
+        encoding="utf-8",
+    )
+    conexion = ConexionDB(f"sqlite:///{tmp_path / 'm.db'}")
+
+    with pytest.raises(OperationalError):
+        poblar_base_de_datos(conexion, str(carpeta_sqls))
+
+    with conexion.crear_sesion() as sesion:
+        assert sesion.scalar(select(func.count()).select_from(Genero)) == 0

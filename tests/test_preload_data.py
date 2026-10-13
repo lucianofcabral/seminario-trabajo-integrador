@@ -1,6 +1,7 @@
 """Tests de regresión para los generadores de CSVs de seed."""
 
 import csv
+from datetime import date, timedelta
 from pathlib import Path
 
 from book_manager.preload_data import preload_data
@@ -69,3 +70,15 @@ def test_precarga_completa_es_consistente(tmp_path, monkeypatch):
         assert precio["moneda_id"] in monedas
     for cotizacion in _leer_csv(tmp_path / "cotizacion.csv"):
         assert cotizacion["tipo_cotizacion_id"] in tipos
+
+
+def test_cotizaciones_de_ejemplo_terminan_una_semana_antes(tmp_path, monkeypatch):
+    """Las cotizaciones de ejemplo dejan libre la última semana para la API."""
+    monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
+    preload_data.generar_csv_cotizacion(renovar=True)
+
+    fechas = [c["fecha"] for c in _leer_csv(tmp_path / "cotizacion.csv")]
+    ultima = date.today() - timedelta(days=preload_data.DIAS_SIN_DATOS_DE_EJEMPLO)
+    assert max(fechas) == ultima.isoformat()
+    assert len(fechas) == 365
+    assert len(fechas) == len(set(fechas))

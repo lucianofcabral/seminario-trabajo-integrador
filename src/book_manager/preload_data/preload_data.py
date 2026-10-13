@@ -14,6 +14,9 @@ from book_manager.rutas import CSV_FOLDER_PATH
 
 CSV_FOLDER: Path = CSV_FOLDER_PATH
 
+# Días previos a hoy sin cotizaciones de ejemplo (ver generar_csv_cotizacion).
+DIAS_SIN_DATOS_DE_EJEMPLO = 7
+
 TIPOS_COTIZACION: list[str] = [
     "Blue",
     "MEP",
@@ -575,30 +578,31 @@ def generar_csv_tipo_cotizacion(renovar: bool = False) -> None:
     _generar_csv(data=tipos, path=path, renovar=renovar, asignar_id=True)
 
 
-def generar_csv_cotizacion(renovar: bool = False) -> None:
-    """Genera una cotización aleatoria por día para todo 2026.
+def generar_csv_cotizacion(renovar: bool = False, dias: int = 365) -> None:
+    """Genera una cotización aleatoria por día durante `dias` días.
+
+    Las fechas terminan una semana antes de hoy: la API informa algunos tipos
+    con días de atraso (el Oficial no se actualiza los fines de semana) y el
+    dato real descargado tiene que quedar como el más reciente.
 
     Args:
         renovar: Si se debe regenerar el archivo CSV, incluso si ya existe.
+        dias: Cantidad de días hacia atrás a generar.
     """
 
     path: Path = CSV_FOLDER / "cotizacion.csv"
     if not renovar and path.exists():
         return
 
-    cotis = []
-    fecha = date(2026, 1, 1)
-    while True:
-        cotis.append(
-            {
-                "tipo_cotizacion_id": random.randint(1, len(TIPOS_COTIZACION)),
-                "fecha": fecha.isoformat(),
-                "valor_pesos": round(random.randint(140000, 180000) / 100, 2),
-            }
-        )
-        fecha += timedelta(days=1)
-        if fecha > date(2026, 12, 31):
-            break
+    ultima = date.today() - timedelta(days=DIAS_SIN_DATOS_DE_EJEMPLO)
+    cotis = [
+        {
+            "tipo_cotizacion_id": random.randint(1, len(TIPOS_COTIZACION)),
+            "fecha": (ultima - timedelta(days=atras)).isoformat(),
+            "valor_pesos": round(random.randint(140000, 180000) / 100, 2),
+        }
+        for atras in range(dias - 1, -1, -1)
+    ]
 
     _generar_csv(data=cotis, path=path, renovar=renovar, asignar_id=True)
 

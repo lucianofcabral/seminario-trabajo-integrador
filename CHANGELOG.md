@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 05]
+
+- `poblar_base_de_datos` corre todo en una sola transacción: si falla una tabla, la base no queda a medio poblar.
+- Reseteo de secuencias con `setval(..., MAX(id) + 1, false)`, correcto también con tablas vacías.
+- Cotizaciones de ejemplo: una por día durante los últimos 365 días, terminando una semana antes de hoy (antes llegaban a fin de 2026 y pisaban a la cotización real de la API, que para algunos tipos viene con días de atraso).
+- `cotizacion.csv` y `cotizacion.sql` regenerados.
+- Tests de atomicidad de la carga y de fechas de las cotizaciones de ejemplo.
+
 ## [Ejercicio 04]
 
 - `UniqueConstraint` en `precio (libro_id, moneda_id)` y en `cotizacion (tipo_cotizacion_id, fecha)`: la base rechaza duplicados aunque se salteen los servicios.

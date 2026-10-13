@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 
 from sqlalchemy import Date, String, text
+from sqlalchemy.orm import Session
 
 from book_manager.database.connection import ConexionDB
 from book_manager.models.models import Base
@@ -33,47 +34,50 @@ def migrar_datos(carpeta_csvs: str, carpeta_sqls: str) -> None:
 def poblar_base_de_datos(conexion: ConexionDB, carpeta_sqls: str) -> None:
     """Crea las tablas y ejecuta los `.sql` en orden de dependencias (FK).
 
-    En PostgreSQL ejecuta todas las sentencias de cada tabla en un solo
-    round-trip (psycopg3 lo permite); en SQLite lo hace sentencia por sentencia.
+    Todo corre en una sola transacción: si falla una tabla no queda la base a
+    medio poblar. En PostgreSQL ejecuta todas las sentencias de cada tabla en un
+    solo round-trip (psycopg3 lo permite); en SQLite, sentencia por sentencia.
+
+    Args:
+        conexion: Conexión a la base de datos destino.
+        carpeta_sqls: Carpeta con un archivo `<tabla>.sql` por tabla.
     """
     Base.metadata.create_all(conexion.engine)
     es_postgres = conexion.engine.dialect.name == "postgresql"
 
-    for tabla in Base.metadata.sorted_tables:
-        sql_path = Path(carpeta_sqls) / f"{tabla.name}.sql"
-        if not sql_path.exists():
-            continue
-        with conexion.transaccion() as sesion:
+    with conexion.transaccion() as sesion:
+        for tabla in Base.metadata.sorted_tables:
+            sql_path = Path(carpeta_sqls) / f"{tabla.name}.sql"
+            if not sql_path.exists():
+                continue
+            contenido = sql_path.read_text(encoding="utf-8")
             if es_postgres:
-                sesion.connection().exec_driver_sql(
-                    sql_path.read_text(encoding="utf-8")
-                )
+                sesion.connection().exec_driver_sql(contenido)
             else:
-                for linea in sql_path.read_text(encoding="utf-8").splitlines():
+                for linea in contenido.splitlines():
                     sentencia = linea.strip().rstrip(";")
                     if sentencia:
                         sesion.execute(text(sentencia))
+        if es_postgres:
+            _resetear_secuencias(sesion)
 
-    _resetear_secuencias(conexion)
 
-
-def _resetear_secuencias(conexion: ConexionDB) -> None:
+def _resetear_secuencias(sesion: Session) -> None:
     """Avanza las secuencias de id tras insertar valores explícitos (PostgreSQL).
 
     Como los CSV preservan sus `id`, la secuencia `SERIAL` queda en 1 y el
-    siguiente INSERT autoincremental colisionaría. `setval` la lleva al máximo
-    actual. En otros dialectos (p. ej. SQLite) no hay secuencia y no hace nada.
+    siguiente INSERT autoincremental colisionaría. `setval` la deja en
+    MAX(id) + 1 sin consumir valor (`is_called = false`), también con la tabla
+    vacía.
     """
-    if conexion.engine.dialect.name != "postgresql":
-        return
     for tabla in Base.metadata.sorted_tables:
-        with conexion.transaccion() as sesion:
-            sesion.execute(
-                text(
-                    f"SELECT setval(pg_get_serial_sequence('{tabla.name}', 'id'), "
-                    f"(SELECT COALESCE(MAX(id), 1) FROM {tabla.name}))"
-                )
-            )
+        sesion.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence(:tabla, 'id'), "
+                f"COALESCE(MAX(id), 0) + 1, false) FROM {tabla.name}"
+            ),
+            {"tabla": tabla.name},
+        )
 
 
 def _leer_csv(csv_path: Path) -> tuple[list[str], list[dict[str, str]]]:
