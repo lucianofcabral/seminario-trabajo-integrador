@@ -16,3 +16,6 @@ wheels/
 .zed/
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Exportaciones generadas por la consola
+exports/

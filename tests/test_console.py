@@ -45,22 +45,12 @@ def test_entidad_a_fila_resuelve_fk(conexion):
     assert fila["genero"] == "Ficción"
 
 
-def test_precio_en_convierte_entre_usd_y_ars():
-    from book_manager.ui.console import _precio_en
-
-    assert _precio_en("USD", 100.0, 1500.0, "ARS") == 150000.0
-    assert _precio_en("ARS", 150000.0, 1500.0, "USD") == 100.0
-    assert _precio_en("USD", 100.0, 1500.0, "USD") == 100.0
-    assert _precio_en("USD", 100.0, 1500.0, "EUR") is None
-
-
-def test_exportar_precios_csv(conexion_poblada, tmp_path):
+def test_exportar_precios_csv(conexion_poblada, tmp_path, capsys):
     from book_manager.ui.console import _exportar_precios_csv
 
-    ruta = tmp_path / "precios.csv"
-    _exportar_precios_csv(conexion_poblada, str(ruta))
+    ruta = tmp_path / "exports" / "precios.csv"
+    _exportar_precios_csv(conexion_poblada, ruta)
 
-    contenido = ruta.read_text(encoding="utf-8")
-    assert "isbn" in contenido
-    assert "titulo" in contenido
-    assert "USD" in contenido
+    cabecera = ruta.read_text(encoding="utf-8").splitlines()[0]
+    assert cabecera.startswith("isbn,titulo,moneda,valor,ARS ")
+    assert "Exportado a" in capsys.readouterr().out

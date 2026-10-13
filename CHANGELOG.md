@@ -2,6 +2,15 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 08]
+
+- Lista bimonetaria por tipo de dólar: se elige un tipo (Oficial, Blue, MEP, ...) con su última cotización y se muestra cada libro en USD y en pesos a ese dólar. Antes ofrecía 178 monedas y solo convertía USD/ARS.
+- Exportación a CSV con una columna `ARS <tipo>` por cada tipo de dólar con cotización, además de la moneda y el valor original.
+- Nuevo `ServicioListaPrecios` con la lógica de los reportes (la consola solo muestra): lee precios y cotizaciones con una consulta por tabla (de ~150 consultas a menos de 10).
+- El CSV se exporta a `exports/precios.csv` en la raíz del proyecto, ignorado por git.
+- La opción de la API muestra las cotizaciones registradas y solo captura errores de red.
+- Tests de la lista bimonetaria, la exportación y la conversión ARS→USD.
+
 ## [Ejercicio 07]
 
 - `.env` versionado con `API_URL` únicamente, como pide la consigna; las credenciales de la base pasan a `.env.local` (ignorado) o a los secrets de Colab.

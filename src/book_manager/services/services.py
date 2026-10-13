@@ -4,8 +4,11 @@ Los servicios validan que las referencias existan, impiden borrar registros en
 uso y resuelven las relaciones. Trabajan con las claves naturales de cada entidad.
 """
 
+import csv
 import os
+from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -346,3 +349,121 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
             )
             registradas.append(self.crear(cotizacion))
         return registradas
+
+
+@dataclass(frozen=True)
+class PrecioBimonetario:
+    """Precio de un libro en dólares y en pesos para un tipo de cotización."""
+
+    isbn: str
+    titulo: str
+    usd: float
+    ars: float
+
+
+def _usd_y_ars(precio: Precio, tasa: float) -> tuple[float, float] | None:
+    """Convierte un precio a (USD, ARS) con la tasa en pesos por dólar.
+
+    Devuelve None si el precio está en otra moneda: no hay cotización para ella.
+    """
+    if precio.moneda.codigo == "USD":
+        return precio.valor, precio.valor * tasa
+    if precio.moneda.codigo == "ARS":
+        return precio.valor / tasa, precio.valor
+    return None
+
+
+def _precio_base_por_libro(precios: list[Precio]) -> dict[str, Precio]:
+    """Elige un precio por libro para convertir: el de USD y, si no hay, el de ARS."""
+    prioridad = {"USD": 0, "ARS": 1}
+    elegidos: dict[str, Precio] = {}
+    for precio in precios:
+        if precio.moneda.codigo not in prioridad:
+            continue
+        actual = elegidos.get(precio.libro.isbn)
+        if (
+            actual is None
+            or prioridad[precio.moneda.codigo] < prioridad[actual.moneda.codigo]
+        ):
+            elegidos[precio.libro.isbn] = precio
+    return elegidos
+
+
+class ServicioListaPrecios:
+    """Reportes de precios en pesos y en dólares según el tipo de cotización.
+
+    Los precios del catálogo se cargan en USD (o en ARS). Cada tipo de dólar
+    (Oficial, Blue, MEP, ...) da un precio en pesos distinto; se usa la última
+    cotización registrada de cada tipo. Lee todo con una consulta por tabla.
+    """
+
+    def __init__(
+        self,
+        repo_precio: IRepositorioPrecio | None = None,
+        repo_cotizacion: IRepositorioCotizacionDolar | None = None,
+        conexion: ConexionDB | None = None,
+    ) -> None:
+        if repo_precio is None or repo_cotizacion is None:
+            conexion = conexion or ConexionDB()
+        self._repo_precio = repo_precio or RepoPrecioSQL(conexion)
+        self._repo_cotizacion = repo_cotizacion or RepoCotizacionDolarSQL(conexion)
+
+    def cotizaciones_vigentes(self) -> list[CotizacionDolar]:
+        """Última cotización de cada tipo, ordenada por nombre del tipo."""
+        return sorted(
+            self._repo_cotizacion.leer_ultimas(), key=lambda c: c.tipo_cotizacion.tipo
+        )
+
+    def lista_bimonetaria(
+        self, tipo: str
+    ) -> tuple[CotizacionDolar, list[PrecioBimonetario]]:
+        """Precio de cada libro en USD y en pesos al último dólar `tipo`.
+
+        Raises:
+            ValueError: Si el tipo no tiene cotizaciones registradas.
+        """
+        cotizacion = self._repo_cotizacion.leer_ultima_por_tipo(tipo)
+        if cotizacion is None:
+            raise ValueError(f"No hay cotizaciones del dólar {tipo!r}.")
+        return cotizacion, self._convertir(cotizacion.valor_pesos)
+
+    def exportar_csv(self, ruta: Path) -> list[CotizacionDolar]:
+        """Exporta cada precio en su moneda y en pesos para cada tipo de dólar.
+
+        Columnas: isbn, titulo, moneda, valor y una `ARS <tipo>` por cada tipo
+        con cotización registrada.
+
+        Returns:
+            Las cotizaciones usadas, una por columna de pesos.
+        """
+        cotizaciones = self.cotizaciones_vigentes()
+        base = _precio_base_por_libro(self._repo_precio.leer_todos())
+
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        with ruta.open("w", newline="", encoding="utf-8") as archivo:
+            escritor = csv.writer(archivo)
+            escritor.writerow(
+                ["isbn", "titulo", "moneda", "valor"]
+                + [f"ARS {c.tipo_cotizacion.tipo}" for c in cotizaciones]
+            )
+            for precio in base.values():
+                pesos = [_usd_y_ars(precio, c.valor_pesos)[1] for c in cotizaciones]
+                escritor.writerow(
+                    [precio.libro.isbn, precio.libro.titulo, precio.moneda.codigo]
+                    + [round(valor, 2) for valor in (precio.valor, *pesos)]
+                )
+        return cotizaciones
+
+    def _convertir(self, tasa: float) -> list[PrecioBimonetario]:
+        filas = []
+        for precio in _precio_base_por_libro(self._repo_precio.leer_todos()).values():
+            usd, ars = _usd_y_ars(precio, tasa)
+            filas.append(
+                PrecioBimonetario(
+                    isbn=precio.libro.isbn,
+                    titulo=precio.libro.titulo,
+                    usd=round(usd, 2),
+                    ars=round(ars, 2),
+                )
+            )
+        return filas

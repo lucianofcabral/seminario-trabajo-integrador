@@ -4,13 +4,13 @@ Cada tabla se describe con sus campos editables y su clave natural. Las
 referencias entre entidades se muestran y piden como objetos completos, no por id.
 """
 
-import csv
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
 
+import requests
 from pydantic import BaseModel, ValidationError
 
 from book_manager.database.connection import ConexionDB
@@ -24,11 +24,13 @@ from book_manager.entities.entities import (
     Stock,
     TipoCotizacion,
 )
+from book_manager.rutas import EXPORTS_FOLDER_PATH
 from book_manager.services.services import (
     ServicioCotizacionDolar,
     ServicioEditorial,
     ServicioGenero,
     ServicioLibro,
+    ServicioListaPrecios,
     ServicioMoneda,
     ServicioPrecio,
     ServicioStock,
@@ -546,123 +548,75 @@ def _buscar(tabla: Tabla) -> None:
 # --- reportes y acciones globales ---
 
 
-def _precio_en(
-    moneda_origen: str, valor: float, cotizacion_usd: float, destino: str
-) -> float | None:
-    """Convierte un valor entre USD y ARS usando la cotización del dólar.
-
-    Solo USD y ARS tienen tasa conocida; para otras monedas devuelve None.
-    """
-    if moneda_origen == destino:
-        return valor
-    if moneda_origen == "USD" and destino == "ARS":
-        return valor * cotizacion_usd
-    if moneda_origen == "ARS" and destino == "USD":
-        return valor / cotizacion_usd
-    return None
-
-
-def _formato_precio(valor: float | None) -> str:
-    """Formatea un precio para la vista; None se muestra como raya."""
-    return "—" if valor is None else f"{valor:.2f}"
-
-
-def _ultima_cotizacion(servicio: ServicioCotizacionDolar):
-    """Devuelve la última cotización Oficial o, si no hay, la Blue."""
-    return servicio.ultima("Oficial") or servicio.ultima("Blue")
-
-
 def _obtener_cotizaciones_api(conexion: ConexionDB) -> None:
     """Descarga y registra las cotizaciones actuales de la API del dólar."""
     servicio = ServicioCotizacionDolar(conexion=conexion)
     try:
         registradas = servicio.obtener_cotizaciones()
-    except Exception as error:  # noqa: BLE001 - la consola reporta y sigue
-        print(f"No se pudo obtener: {error}")
+    except requests.RequestException as error:
+        print(f"No se pudo consultar la API: {error}")
         return
-    print(f"Se registraron {len(registradas)} cotización(es).")
+    for cotizacion in registradas:
+        print(
+            f"  {cotizacion.tipo_cotizacion.tipo:<10} {cotizacion.fecha}"
+            f"  $ {cotizacion.valor_pesos:.2f}"
+        )
+    print(f"Se registraron {len(registradas)} cotización(es) nuevas.")
+
+
+def _pedir_cotizacion(servicio: ServicioListaPrecios) -> CotizacionDolar | None:
+    """Lista la última cotización de cada tipo de dólar y devuelve la elegida."""
+    cotizaciones = servicio.cotizaciones_vigentes()
+    if not cotizaciones:
+        print("No hay cotizaciones del dólar. Obtenelas primero desde la API.")
+        return None
+    print()
+    for i, cotizacion in enumerate(cotizaciones, start=1):
+        print(
+            f"  {i}. {cotizacion.tipo_cotizacion.tipo:<10}"
+            f" $ {cotizacion.valor_pesos:.2f} ({cotizacion.fecha})"
+        )
+    numero = _pedir_numero(len(cotizaciones))
+    return cotizaciones[numero - 1] if numero is not None else None
 
 
 def _precios_bimonetarios(conexion: ConexionDB) -> None:
-    """Muestra el precio de cada libro en pesos y en la moneda seleccionada."""
-    servicio_moneda = ServicioMoneda(conexion=conexion)
-    monedas = servicio_moneda.leer_todos()
-    if not monedas:
-        print("No hay monedas cargadas.")
-        return
-
-    print()
-    for i, moneda in enumerate(monedas, start=1):
-        print(f"  {i}. {moneda.codigo} — {moneda.nombre}")
-    numero = _pedir_numero(len(monedas))
-    if numero is None:
-        return
-    moneda = monedas[numero - 1]
-
-    cotizacion = _ultima_cotizacion(ServicioCotizacionDolar(conexion=conexion))
+    """Muestra el precio de cada libro en dólares y en pesos al dólar elegido."""
+    servicio = ServicioListaPrecios(conexion=conexion)
+    cotizacion = _pedir_cotizacion(servicio)
     if cotizacion is None:
-        print("No hay cotización del dólar para convertir.")
         return
-    tasa = cotizacion.valor_pesos
-
-    servicio_libro = ServicioLibro(conexion=conexion)
-    servicio_precio = ServicioPrecio(conexion=conexion)
-
-    filas = []
-    for libro in servicio_libro.leer_todos():
-        precios = servicio_precio.leer_por_libro(libro.isbn)
-        if not precios:
-            continue
-        precio = precios[0]
-        ars = _precio_en(precio.moneda.codigo, precio.valor, tasa, "ARS")
-        en_moneda = _precio_en(precio.moneda.codigo, precio.valor, tasa, moneda.codigo)
-        filas.append(
-            {
-                "titulo": libro.titulo,
-                "ars": _formato_precio(ars),
-                "moneda": _formato_precio(en_moneda),
-            }
-        )
-
-    if not filas:
-        print("No hay precios para mostrar.")
+    tipo = cotizacion.tipo_cotizacion.tipo
+    _, precios = servicio.lista_bimonetaria(tipo)
+    if not precios:
+        print("No hay precios en USD o ARS para mostrar.")
         return
 
+    filas = [
+        {"titulo": p.titulo, "usd": f"{p.usd:.2f}", "ars": f"{p.ars:.2f}"}
+        for p in precios
+    ]
     print()
+    print(f"Dólar {tipo} del {cotizacion.fecha}: $ {cotizacion.valor_pesos:.2f}")
     print(
         render_tabla(
             filas,
             (
                 ("titulo", "Libro"),
-                ("ars", "Precio (ARS)"),
-                ("moneda", f"Precio ({moneda.codigo})"),
+                ("usd", "Precio (USD)"),
+                ("ars", f"Precio (ARS {tipo})"),
             ),
         )
     )
 
 
-def _exportar_precios_csv(conexion: ConexionDB, ruta: str = "precios.csv") -> None:
-    """Exporta los precios a CSV, una columna por moneda presente."""
-    servicio_precio = ServicioPrecio(conexion=conexion)
-    servicio_libro = ServicioLibro(conexion=conexion)
-    precios = servicio_precio.leer_todos()
-    if not precios:
-        print("No hay precios para exportar.")
-        return
-
-    monedas = sorted({precio.moneda.codigo for precio in precios})
-    with Path(ruta).open("w", newline="", encoding="utf-8") as f:
-        escritor = csv.writer(f)
-        escritor.writerow(["isbn", "titulo", *monedas])
-        for libro in servicio_libro.leer_todos():
-            del_libro = {
-                precio.moneda.codigo: precio.valor
-                for precio in servicio_precio.leer_por_libro(libro.isbn)
-            }
-            escritor.writerow(
-                [libro.isbn, libro.titulo, *(del_libro.get(c, "") for c in monedas)]
-            )
-    print(f"Exportado a {ruta}.")
+def _exportar_precios_csv(
+    conexion: ConexionDB, ruta: Path = EXPORTS_FOLDER_PATH / "precios.csv"
+) -> None:
+    """Exporta los precios en pesos para todos los tipos de dólar a un CSV."""
+    cotizaciones = ServicioListaPrecios(conexion=conexion).exportar_csv(ruta)
+    tipos = ", ".join(c.tipo_cotizacion.tipo for c in cotizaciones) or "ninguno"
+    print(f"Exportado a {ruta} (tipos de dólar: {tipos}).")
 
 
 # --- menús ---
@@ -703,7 +657,7 @@ def _menu_principal(tablas: list[Tabla], conexion: ConexionDB) -> None:
         for i, tabla in enumerate(tablas, start=1):
             print(f"  {i}. {tabla.etiqueta}")
         print(f"  {n + 1}. Obtener cotizaciones por API")
-        print(f"  {n + 2}. Precios bimonetarios")
+        print(f"  {n + 2}. Precios bimonetarios (USD y pesos por tipo de dólar)")
         print(f"  {n + 3}. Exportar precios a CSV")
         print("  0. Salir")
 
