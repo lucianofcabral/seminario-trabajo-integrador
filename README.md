@@ -47,8 +47,18 @@ Entidades:
 
 ## Requisitos
 
-- Python 3.12 o superior
+- Python 3.12 (la misma versión que Colab)
 - [uv](https://docs.astral.sh/uv/) (opcional; también se puede usar pip)
+- Una base PostgreSQL (Supabase)
+
+## Configuración
+
+- `.env` (versionado): solo `API_URL`, la URL pública de la API del dólar.
+- `.env.local` (no versionado): credenciales de la base. Copiá
+  `.env.local.example` a `.env.local` y completalo.
+- En Colab, las credenciales se cargan desde los secrets del notebook
+  (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`). Las variables
+  ya definidas nunca se pisan con las de los archivos.
 
 ## Instalación
 
@@ -72,13 +82,16 @@ Desde Python (por ejemplo, desde el notebook de Colab):
 
 ```python
 from book_manager.main import main
-main(import_default_data=False)  # conserva los datos; genera solo los CSV que falten
-main(import_default_data=True)   # regenera todos los datos de ejemplo
+main(import_default_data=False)  # conserva la base; solo la puebla si está vacía
+main(import_default_data=True)   # borra las tablas, regenera los datos de ejemplo y repuebla
 ```
 
-Al arrancar aparece el menú principal con las tablas. Elegís una con su número y
-dentro de cada una tenés:
+Al arrancar aparece el menú principal con las tablas y tres acciones: obtener
+cotizaciones de la API, ver la lista de precios bimonetaria (USD y pesos al tipo de
+dólar elegido) y exportar los precios a `exports/precios.csv` con una columna de
+pesos por cada tipo de dólar.
 
+Dentro de cada tabla: 
 - **Ver** — listar los registros.
 - **Agregar** — cargar uno nuevo.
 - **Editar** — elegir qué atributo(s) modificar, no todo el registro.
@@ -90,12 +103,14 @@ por nombre, no por id.
 
 ## Reglas de negocio
 
-- No se repiten ISBN, códigos de moneda, proveedores, géneros ni tipos de cotización.
+- No se repiten ISBN, códigos de moneda, proveedores, géneros ni tipos de cotización;
+  tampoco dos precios de un libro en la misma moneda ni dos cotizaciones de un tipo
+  en la misma fecha (lo garantiza la base con restricciones únicas).
 - Un libro necesita una editorial y un género existentes; stock y precios, un libro
   (y una moneda) existentes; una cotización, un tipo existente.
 - No se puede borrar un género, una editorial, una moneda o un tipo de cotización
   que esté en uso.
-- Al borrar un libro se borran también su stock y sus precios.
+- Al borrar un libro se borran también su stock y sus precios, en la misma transacción.
 
 ## Tablas
 
@@ -119,25 +134,32 @@ uv run python -m book_manager.preload_data.preload_data
 ```
 
 Incluye monedas según ISO 4217, diez editoriales, diez géneros, treinta libros,
-stock y precios aleatorios, diez tipos de cotización y cotizaciones del año 2026.
-Los archivos quedan en `src/book_manager/migrations/csv/`.
+stock y precios aleatorios en USD, diez tipos de cotización y un año de
+cotizaciones que termina una semana antes de la generación (así las cotizaciones
+reales de la API quedan como las más recientes). Los archivos quedan en
+`src/book_manager/migrations/csv/`; la migración genera los `.sql` en
+`src/book_manager/migrations/sql/`.
 
 ## Estructura
 
 ```
 src/book_manager/
+  database/       ConexionDB y context manager de transacciones
   entities/       entidades (Pydantic) con validación al crear y al modificar
-  repositories/   persistencia: interfaces (ABC) e implementación sobre CSV
-  services/       lógica de negocio: validaciones, integridad y relaciones
+  models/         tablas ORM (SQLAlchemy) con tipos, relaciones y restricciones
+  repositories/   interfaces (ABC) e implementación sobre SQLAlchemy
+  services/       lógica de negocio, API del dólar y reportes de precios
   preload_data/   generación de los datos de ejemplo
-  migrations/csv/ archivos CSV con los datos
+  migrations/     CSV del TP1, .sql generados y la migración
   ui/             consola interactiva y formateo de tablas
+  utils.py        funciones auxiliares compartidas
   main.py         punto de entrada
-tests/            tests con pytest
+tests/            tests con pytest (sobre SQLite)
 ```
 
 La consola usa los servicios, los servicios usan los repositorios y los
-repositorios leen y escriben los CSV. Cada capa depende solo de la de abajo.
+repositorios usan los modelos ORM sobre la base. Cada capa depende solo de la de
+abajo.
 
 ## Tests
 

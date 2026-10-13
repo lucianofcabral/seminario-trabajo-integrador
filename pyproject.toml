@@ -1,7 +1,7 @@
 [project]
 name = "book-manager"
 version = "0.1.0"
-description = "Gestor de libros por terminal con almacenamiento en CSV."
+description = "Gestor de libros por terminal sobre PostgreSQL con SQLAlchemy."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

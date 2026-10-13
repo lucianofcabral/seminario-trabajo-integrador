@@ -2,6 +2,12 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 01]
+
+- README al día con el Sprint 2: configuración (`.env`, `.env.local` y secrets de Colab), menú de reportes, reglas de unicidad y estructura sobre SQLAlchemy.
+- Descripción de `pyproject.toml` actualizada (ya no es almacenamiento en CSV).
+- `.python-version` en 3.12, la misma versión que Colab, para probar localmente con el mismo intérprete de la entrega.
+
 ## [Ejercicio 08]
 
 - Lista bimonetaria por tipo de dólar: se elige un tipo (Oficial, Blue, MEP, ...) con su última cotización y se muestra cada libro en USD y en pesos a ese dólar. Antes ofrecía 178 monedas y solo convertía USD/ARS.
