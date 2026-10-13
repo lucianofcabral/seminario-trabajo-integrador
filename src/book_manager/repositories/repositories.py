@@ -146,3 +146,13 @@ class IRepositorioCotizacionDolar(IRepositorio[CotizacionDolar]):
     def leer_historico_por_tipo(self, tipo: str) -> list[CotizacionDolar]:
         """Lee el histórico de cotizaciones de un tipo, ordenado por fecha."""
         ...
+
+    @abstractmethod
+    def leer_ultima_por_tipo(self, tipo: str) -> CotizacionDolar | None:
+        """Lee la cotización más reciente de un tipo, o None si no tiene."""
+        ...
+
+    @abstractmethod
+    def leer_ultimas(self) -> list[CotizacionDolar]:
+        """Lee la cotización más reciente de cada tipo que tenga alguna."""
+        ...

@@ -71,3 +71,34 @@ def test_cotizacion_historico_por_tipo(conexion_poblada):
 
     assert historico
     assert historico[0].tipo_cotizacion.tipo == "Blue"
+
+
+def test_listado_estable_tras_actualizar(conexion_poblada):
+    """Editar un registro no cambia su posición: la consola elige por fila."""
+    repo = RepoLibroSQL(conexion_poblada)
+    antes = [libro.isbn for libro in repo.leer_todos()]
+    primero = repo.leer_todos()[0]
+
+    repo.actualizar(primero.isbn, primero.model_copy(update={"titulo": "Otro"}))
+
+    assert [libro.isbn for libro in repo.leer_todos()] == antes
+
+
+def test_cotizacion_ultima_por_tipo_y_ultimas(conexion_poblada):
+    repo = RepoCotizacionDolarSQL(conexion_poblada)
+    historico = repo.leer_historico_por_tipo("Blue")
+
+    assert repo.leer_ultima_por_tipo("Blue") == historico[-1]
+    assert repo.leer_ultima_por_tipo("Inexistente") is None
+
+    ultimas = {c.tipo_cotizacion.tipo: c for c in repo.leer_ultimas()}
+    assert ultimas["Blue"] == historico[-1]
+    assert len(ultimas) == len({c.tipo_cotizacion.tipo for c in repo.leer_todos()})
+
+
+def test_precio_duplicado_rechazado(conexion_poblada):
+    repo = RepoPrecioSQL(conexion_poblada)
+    precio = repo.leer_todos()[0]
+
+    with pytest.raises(ValueError):
+        repo.crear(precio.model_copy(update={"valor": 1.0}))

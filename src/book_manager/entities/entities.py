@@ -9,6 +9,8 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from book_manager.utils import normalizar_codigo
+
 
 class EntidadBase(BaseModel):
     """Base de todas las entidades del sistema.
@@ -58,7 +60,7 @@ class Moneda(EntidadBase):
     @classmethod
     def a_mayusculas(cls, v: str) -> str:
         """Normaliza el código a mayúsculas y sin espacios."""
-        return v.upper().replace(" ", "")
+        return normalizar_codigo(v)
 
 
 class TipoCotizacion(EntidadBase):

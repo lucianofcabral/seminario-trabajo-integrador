@@ -102,7 +102,11 @@ class ServicioBase[T: EntidadBase]:
 
 
 class ServicioLibro(ServicioBase[Libro]):
-    """Libros: exige editorial y género existentes; al borrar, borra stock y precios."""
+    """Libros: exige editorial y género existentes.
+
+    Al borrar un libro, su stock y sus precios se borran por cascada en la misma
+    transacción (ver `models.Libro`).
+    """
 
     def __init__(
         self,
@@ -131,13 +135,6 @@ class ServicioLibro(ServicioBase[Libro]):
             raise ValueError(f"No existe la editorial {libro.editorial.proveedor!r}.")
         if self._repo_genero.leer_por_nombre(libro.genero.genero) is None:
             raise ValueError(f"No existe el género {libro.genero.genero!r}.")
-
-    def _antes_de_eliminar(self, isbn: object) -> None:
-        stock = self._repo_stock.leer_por_libro(str(isbn))
-        if stock is not None:
-            self._repo_stock.eliminar(str(isbn))
-        for precio in self._repo_precio.leer_por_libro(str(isbn)):
-            self._repo_precio.eliminar((str(isbn), precio.moneda.codigo))
 
 
 class ServicioGenero(ServicioBase[Genero]):
@@ -304,8 +301,12 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
         return self._repo.leer_por_tipo_y_fecha(tipo, fecha)
 
     def ultima(self, tipo: str) -> CotizacionDolar | None:
-        historico = self.historico(tipo)
-        return historico[-1] if historico else None
+        """Devuelve la cotización más reciente de un tipo, o None si no tiene."""
+        return self._repo.leer_ultima_por_tipo(tipo)
+
+    def ultimas(self) -> list[CotizacionDolar]:
+        """Devuelve la cotización más reciente de cada tipo."""
+        return self._repo.leer_ultimas()
 
     def _validar(self, cotizacion: CotizacionDolar) -> None:
         if self._repo_tipo.leer_por_tipo(cotizacion.tipo_cotizacion.tipo) is None:

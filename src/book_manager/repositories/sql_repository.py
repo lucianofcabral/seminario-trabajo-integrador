@@ -3,19 +3,24 @@
 Cada repositorio mapea entre la entidad de dominio (sin id, con referencias a
 objetos) y el modelo ORM (con id y foreign keys). Las claves naturales localizan
 los registros: ISBN, código de moneda, proveedor, nombre de género, etc.
+
+Los listados se devuelven siempre ordenados por id: la consola selecciona
+registros por número de fila y ese número tiene que ser estable entre lecturas.
 """
 
+from abc import ABC, abstractmethod
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import InstrumentedAttribute, Session, selectinload
 
 from book_manager.database.connection import ConexionDB
 from book_manager.entities.entities import (
     CotizacionDolar,
     Editorial,
+    EntidadBase,
     Genero,
     Libro,
     Moneda,
@@ -34,6 +39,7 @@ from book_manager.repositories.repositories import (
     IRepositorioStock,
     IRepositorioTipoCotizacion,
 )
+from book_manager.utils import normalizar_codigo
 
 # --- conversión modelo ORM -> entidad ---
 
@@ -96,72 +102,89 @@ def _cotizacion_entidad(modelo: m.CotizacionDolar) -> CotizacionDolar:
 # --- resolución de foreign keys por clave natural ---
 
 
+def _id_por_clave(
+    sesion: Session, columna: InstrumentedAttribute, valor: Any, descripcion: str
+) -> int:
+    """Devuelve el id del registro cuya `columna` vale `valor`.
+
+    Args:
+        sesion: Sesión activa.
+        columna: Columna de clave natural, p. ej. `m.Libro.isbn`.
+        valor: Valor buscado.
+        descripcion: Cómo nombrar al registro en el error, p. ej. "la editorial".
+
+    Raises:
+        ValueError: Si no existe un registro con ese valor.
+    """
+    id_registro = sesion.scalar(select(columna.class_.id).where(columna == valor))
+    if id_registro is None:
+        raise ValueError(f"No existe {descripcion} {valor!r}.")
+    return id_registro
+
+
 def _id_editorial(sesion: Session, proveedor: str) -> int:
-    modelo = sesion.scalar(
-        select(m.Editorial).where(m.Editorial.proveedor == proveedor)
-    )
-    if modelo is None:
-        raise ValueError(f"No existe la editorial {proveedor!r}.")
-    return modelo.id
+    return _id_por_clave(sesion, m.Editorial.proveedor, proveedor, "la editorial")
 
 
 def _id_genero(sesion: Session, nombre: str) -> int:
-    modelo = sesion.scalar(select(m.Genero).where(m.Genero.genero == nombre))
-    if modelo is None:
-        raise ValueError(f"No existe el género {nombre!r}.")
-    return modelo.id
+    return _id_por_clave(sesion, m.Genero.genero, nombre, "el género")
 
 
 def _id_moneda(sesion: Session, codigo: str) -> int:
-    codigo = codigo.upper().replace(" ", "")
-    modelo = sesion.scalar(select(m.Moneda).where(m.Moneda.codigo == codigo))
-    if modelo is None:
-        raise ValueError(f"No existe la moneda {codigo!r}.")
-    return modelo.id
+    return _id_por_clave(
+        sesion, m.Moneda.codigo, normalizar_codigo(codigo), "la moneda"
+    )
 
 
 def _id_tipo(sesion: Session, tipo: str) -> int:
-    modelo = sesion.scalar(
-        select(m.TipoCotizacion).where(m.TipoCotizacion.tipo == tipo)
-    )
-    if modelo is None:
-        raise ValueError(f"No existe el tipo de cotización {tipo!r}.")
-    return modelo.id
+    return _id_por_clave(sesion, m.TipoCotizacion.tipo, tipo, "el tipo de cotización")
 
 
 def _id_libro(sesion: Session, isbn: str) -> int:
-    modelo = sesion.scalar(select(m.Libro).where(m.Libro.isbn == isbn))
-    if modelo is None:
-        raise ValueError(f"No existe el libro con ISBN {isbn!r}.")
-    return modelo.id
+    return _id_por_clave(sesion, m.Libro.isbn, isbn, "el libro con ISBN")
 
 
 # --- base genérica ---
 
 
-class RepoSqlBase[T, M]:
+class RepoSqlBase[T: EntidadBase, M: m.Base](ABC):
     """Base común: CRUD transaccional delegando el mapeo a las subclases."""
+
+    modelo: type[M]
 
     def __init__(self, conexion: ConexionDB) -> None:
         self._conexion = conexion
 
-    # hooks que cada repositorio concreto implementa
-    def _a_entidad(self, modelo: M) -> T:  # pragma: no cover - abstracto
-        raise NotImplementedError
+    @abstractmethod
+    def _a_entidad(self, modelo: M) -> T:
+        """Convierte el modelo ORM en la entidad de dominio."""
 
-    def _a_modelo(self, entidad: T, sesion: Session) -> M:  # pragma: no cover
-        raise NotImplementedError
+    @abstractmethod
+    def _a_modelo(self, entidad: T, sesion: Session) -> M:
+        """Convierte la entidad en un modelo ORM nuevo, resolviendo sus FKs."""
 
-    def _select(self):  # pragma: no cover - abstracto
-        raise NotImplementedError
+    @abstractmethod
+    def _buscar(self, sesion: Session, clave: Any) -> M | None:
+        """Busca el modelo por su clave natural, o None si no existe."""
 
-    def _buscar(self, sesion: Session, clave: Any):  # pragma: no cover - abstracto
-        raise NotImplementedError
+    @abstractmethod
+    def _aplicar(self, modelo: M, entidad: T, sesion: Session) -> None:
+        """Copia los datos de la entidad sobre un modelo existente."""
 
-    def _aplicar(
-        self, modelo: M, entidad: T, sesion: Session
-    ) -> None:  # pragma: no cover
-        raise NotImplementedError
+    def _select(self) -> Select[tuple[M]]:
+        """Consulta base de los listados, ordenada por id."""
+        return select(self.modelo).order_by(self.modelo.id)
+
+    def _listar(self, stmt: Select[tuple[M]]) -> list[T]:
+        """Ejecuta una consulta y convierte cada fila en entidad."""
+        with self._conexion.crear_sesion() as sesion:
+            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt)]
+
+    def _leer_uno(self, clave: Any) -> T | None:
+        """Lee una entidad por su clave natural, o None si no existe."""
+        with self._conexion.crear_sesion() as sesion:
+            modelo = self._buscar(sesion, clave)
+            return self._a_entidad(modelo) if modelo is not None else None
 
     def crear(self, entidad: T) -> T:
         try:
@@ -174,9 +197,7 @@ class RepoSqlBase[T, M]:
         return entidad
 
     def leer_todos(self) -> list[T]:
-        with self._conexion.crear_sesion() as sesion:
-            modelos = sesion.scalars(self._select()).all()
-            return [self._a_entidad(modelo) for modelo in modelos]
+        return self._listar(self._select())
 
     def actualizar(self, clave: Any, entidad: T) -> T:
         try:
@@ -206,76 +227,55 @@ class RepoSqlBase[T, M]:
 class RepoGeneroSQL(RepoSqlBase[Genero, m.Genero], IRepositorioGenero):
     """CRUD de géneros sobre SQL. Clave natural: nombre del género."""
 
+    modelo = m.Genero
+
     def _a_entidad(self, modelo: m.Genero) -> Genero:
         return _genero_entidad(modelo)
 
     def _a_modelo(self, entidad: Genero, sesion: Session) -> m.Genero:
         return m.Genero(genero=entidad.genero)
 
-    def _select(self):
-        return select(m.Genero)
-
-    def _buscar(self, sesion: Session, clave: str):
+    def _buscar(self, sesion: Session, clave: str) -> m.Genero | None:
         return sesion.scalar(select(m.Genero).where(m.Genero.genero == clave))
 
     def _aplicar(self, modelo: m.Genero, entidad: Genero, sesion: Session) -> None:
         modelo.genero = entidad.genero
 
     def leer_por_nombre(self, nombre: str) -> Genero | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, nombre)
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(nombre)
 
     def leer_por_cadena(self, cadena: str) -> list[Genero]:
-        with self._conexion.crear_sesion() as sesion:
-            stmt = select(m.Genero).where(m.Genero.genero.ilike(f"%{cadena}%"))
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+        return self._listar(self._select().where(m.Genero.genero.ilike(f"%{cadena}%")))
 
 
 class RepoEditorialSQL(RepoSqlBase[Editorial, m.Editorial], IRepositorioEditorial):
     """CRUD de editoriales sobre SQL. Clave natural: proveedor."""
 
+    modelo = m.Editorial
+
     def _a_entidad(self, modelo: m.Editorial) -> Editorial:
         return _editorial_entidad(modelo)
 
     def _a_modelo(self, entidad: Editorial, sesion: Session) -> m.Editorial:
-        return m.Editorial(
-            proveedor=entidad.proveedor,
-            pais=entidad.pais,
-            provincia=entidad.provincia,
-            localidad=entidad.localidad,
-            domicilio=entidad.domicilio,
-            telefono=entidad.telefono,
-            email=entidad.email,
-            responsable=entidad.responsable,
-        )
+        return m.Editorial(**entidad.model_dump())
 
-    def _select(self):
-        return select(m.Editorial)
-
-    def _buscar(self, sesion: Session, clave: str):
+    def _buscar(self, sesion: Session, clave: str) -> m.Editorial | None:
         return sesion.scalar(select(m.Editorial).where(m.Editorial.proveedor == clave))
 
     def _aplicar(
         self, modelo: m.Editorial, entidad: Editorial, sesion: Session
     ) -> None:
-        modelo.proveedor = entidad.proveedor
-        modelo.pais = entidad.pais
-        modelo.provincia = entidad.provincia
-        modelo.localidad = entidad.localidad
-        modelo.domicilio = entidad.domicilio
-        modelo.telefono = entidad.telefono
-        modelo.email = entidad.email
-        modelo.responsable = entidad.responsable
+        for campo, valor in entidad.model_dump().items():
+            setattr(modelo, campo, valor)
 
     def leer_por_proveedor(self, proveedor: str) -> Editorial | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, proveedor)
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(proveedor)
 
 
 class RepoMonedaSQL(RepoSqlBase[Moneda, m.Moneda], IRepositorioMoneda):
     """CRUD de monedas sobre SQL. Clave natural: código ISO 4217."""
+
+    modelo = m.Moneda
 
     def _a_entidad(self, modelo: m.Moneda) -> Moneda:
         return _moneda_entidad(modelo)
@@ -283,21 +283,17 @@ class RepoMonedaSQL(RepoSqlBase[Moneda, m.Moneda], IRepositorioMoneda):
     def _a_modelo(self, entidad: Moneda, sesion: Session) -> m.Moneda:
         return m.Moneda(codigo=entidad.codigo, nombre=entidad.nombre)
 
-    def _select(self):
-        return select(m.Moneda)
-
-    def _buscar(self, sesion: Session, clave: str):
-        codigo = clave.upper().replace(" ", "")
-        return sesion.scalar(select(m.Moneda).where(m.Moneda.codigo == codigo))
+    def _buscar(self, sesion: Session, clave: str) -> m.Moneda | None:
+        return sesion.scalar(
+            select(m.Moneda).where(m.Moneda.codigo == normalizar_codigo(clave))
+        )
 
     def _aplicar(self, modelo: m.Moneda, entidad: Moneda, sesion: Session) -> None:
         modelo.codigo = entidad.codigo
         modelo.nombre = entidad.nombre
 
     def leer_por_codigo(self, codigo: str) -> Moneda | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, codigo)
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(codigo)
 
 
 class RepoTipoCotizacionSQL(
@@ -305,16 +301,15 @@ class RepoTipoCotizacionSQL(
 ):
     """CRUD de tipos de cotización sobre SQL. Clave natural: nombre del tipo."""
 
+    modelo = m.TipoCotizacion
+
     def _a_entidad(self, modelo: m.TipoCotizacion) -> TipoCotizacion:
         return _tipo_entidad(modelo)
 
     def _a_modelo(self, entidad: TipoCotizacion, sesion: Session) -> m.TipoCotizacion:
         return m.TipoCotizacion(tipo=entidad.tipo)
 
-    def _select(self):
-        return select(m.TipoCotizacion)
-
-    def _buscar(self, sesion: Session, clave: str):
+    def _buscar(self, sesion: Session, clave: str) -> m.TipoCotizacion | None:
         return sesion.scalar(
             select(m.TipoCotizacion).where(m.TipoCotizacion.tipo == clave)
         )
@@ -325,13 +320,17 @@ class RepoTipoCotizacionSQL(
         modelo.tipo = entidad.tipo
 
     def leer_por_tipo(self, tipo: str) -> TipoCotizacion | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, tipo)
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(tipo)
 
 
 class RepoLibroSQL(RepoSqlBase[Libro, m.Libro], IRepositorioLibro):
-    """CRUD de libros sobre SQL. Clave natural: ISBN."""
+    """CRUD de libros sobre SQL. Clave natural: ISBN.
+
+    Al eliminar un libro, el ORM borra en cascada su stock y sus precios dentro
+    de la misma transacción (ver `models.Libro`).
+    """
+
+    modelo = m.Libro
 
     def _a_entidad(self, modelo: m.Libro) -> Libro:
         return _libro_entidad(modelo)
@@ -345,12 +344,14 @@ class RepoLibroSQL(RepoSqlBase[Libro, m.Libro], IRepositorioLibro):
             genero_id=_id_genero(sesion, entidad.genero.genero),
         )
 
-    def _select(self):
-        return select(m.Libro).options(
-            selectinload(m.Libro.editorial), selectinload(m.Libro.genero)
+    def _select(self) -> Select[tuple[m.Libro]]:
+        return (
+            super()
+            ._select()
+            .options(selectinload(m.Libro.editorial), selectinload(m.Libro.genero))
         )
 
-    def _buscar(self, sesion: Session, clave: str):
+    def _buscar(self, sesion: Session, clave: str) -> m.Libro | None:
         return sesion.scalar(select(m.Libro).where(m.Libro.isbn == clave))
 
     def _aplicar(self, modelo: m.Libro, entidad: Libro, sesion: Session) -> None:
@@ -361,27 +362,23 @@ class RepoLibroSQL(RepoSqlBase[Libro, m.Libro], IRepositorioLibro):
         modelo.genero_id = _id_genero(sesion, entidad.genero.genero)
 
     def leer_por_isbn(self, isbn: str) -> Libro | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, isbn)
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(isbn)
 
     def leer_por_editorial(self, proveedor: str) -> list[Libro]:
-        with self._conexion.crear_sesion() as sesion:
-            stmt = (
-                self._select()
-                .join(m.Editorial)
-                .where(m.Editorial.proveedor == proveedor)
-            )
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+        return self._listar(
+            self._select().join(m.Editorial).where(m.Editorial.proveedor == proveedor)
+        )
 
     def leer_por_genero(self, genero: str) -> list[Libro]:
-        with self._conexion.crear_sesion() as sesion:
-            stmt = self._select().join(m.Genero).where(m.Genero.genero == genero)
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+        return self._listar(
+            self._select().join(m.Genero).where(m.Genero.genero == genero)
+        )
 
 
 class RepoStockSQL(RepoSqlBase[Stock, m.Stock], IRepositorioStock):
     """CRUD de stock sobre SQL. Clave natural: ISBN del libro."""
+
+    modelo = m.Stock
 
     def _a_entidad(self, modelo: m.Stock) -> Stock:
         return _stock_entidad(modelo)
@@ -392,13 +389,18 @@ class RepoStockSQL(RepoSqlBase[Stock, m.Stock], IRepositorioStock):
             existencia=entidad.existencia,
         )
 
-    def _select(self):
-        return select(m.Stock).options(
-            selectinload(m.Stock.libro).selectinload(m.Libro.editorial),
-            selectinload(m.Stock.libro).selectinload(m.Libro.genero),
+    def _select(self) -> Select[tuple[m.Stock]]:
+        libro = selectinload(m.Stock.libro)
+        return (
+            super()
+            ._select()
+            .options(
+                libro.selectinload(m.Libro.editorial),
+                libro.selectinload(m.Libro.genero),
+            )
         )
 
-    def _buscar(self, sesion: Session, clave: str):
+    def _buscar(self, sesion: Session, clave: str) -> m.Stock | None:
         return sesion.scalar(select(m.Stock).join(m.Libro).where(m.Libro.isbn == clave))
 
     def _aplicar(self, modelo: m.Stock, entidad: Stock, sesion: Session) -> None:
@@ -406,15 +408,13 @@ class RepoStockSQL(RepoSqlBase[Stock, m.Stock], IRepositorioStock):
         modelo.existencia = entidad.existencia
 
     def leer_por_libro(self, isbn: str) -> Stock | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = sesion.scalar(
-                self._select().join(m.Libro).where(m.Libro.isbn == isbn)
-            )
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno(isbn)
 
 
 class RepoPrecioSQL(RepoSqlBase[Precio, m.Precio], IRepositorioPrecio):
     """CRUD de precios sobre SQL. Clave natural: (ISBN, código de moneda)."""
+
+    modelo = m.Precio
 
     def _a_entidad(self, modelo: m.Precio) -> Precio:
         return _precio_entidad(modelo)
@@ -426,21 +426,25 @@ class RepoPrecioSQL(RepoSqlBase[Precio, m.Precio], IRepositorioPrecio):
             valor=entidad.valor,
         )
 
-    def _select(self):
-        return select(m.Precio).options(
-            selectinload(m.Precio.libro).selectinload(m.Libro.editorial),
-            selectinload(m.Precio.libro).selectinload(m.Libro.genero),
-            selectinload(m.Precio.moneda),
+    def _select(self) -> Select[tuple[m.Precio]]:
+        libro = selectinload(m.Precio.libro)
+        return (
+            super()
+            ._select()
+            .options(
+                libro.selectinload(m.Libro.editorial),
+                libro.selectinload(m.Libro.genero),
+                selectinload(m.Precio.moneda),
+            )
         )
 
-    def _buscar(self, sesion: Session, clave: tuple[str, str]):
+    def _buscar(self, sesion: Session, clave: tuple[str, str]) -> m.Precio | None:
         isbn, codigo = clave
-        codigo = codigo.upper().replace(" ", "")
         return sesion.scalar(
             select(m.Precio)
             .join(m.Libro)
             .join(m.Moneda)
-            .where(m.Libro.isbn == isbn, m.Moneda.codigo == codigo)
+            .where(m.Libro.isbn == isbn, m.Moneda.codigo == normalizar_codigo(codigo))
         )
 
     def _aplicar(self, modelo: m.Precio, entidad: Precio, sesion: Session) -> None:
@@ -449,26 +453,25 @@ class RepoPrecioSQL(RepoSqlBase[Precio, m.Precio], IRepositorioPrecio):
         modelo.valor = entidad.valor
 
     def leer_por_libro(self, isbn: str) -> list[Precio]:
-        with self._conexion.crear_sesion() as sesion:
-            stmt = self._select().join(m.Libro).where(m.Libro.isbn == isbn)
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+        return self._listar(self._select().join(m.Libro).where(m.Libro.isbn == isbn))
 
     def leer_por_moneda(self, codigo: str) -> list[Precio]:
-        codigo = codigo.upper().replace(" ", "")
-        with self._conexion.crear_sesion() as sesion:
-            stmt = self._select().join(m.Moneda).where(m.Moneda.codigo == codigo)
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+        return self._listar(
+            self._select()
+            .join(m.Moneda)
+            .where(m.Moneda.codigo == normalizar_codigo(codigo))
+        )
 
     def leer_por_libro_y_moneda(self, isbn: str, codigo: str) -> Precio | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, (isbn, codigo))
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno((isbn, codigo))
 
 
 class RepoCotizacionDolarSQL(
     RepoSqlBase[CotizacionDolar, m.CotizacionDolar], IRepositorioCotizacionDolar
 ):
     """CRUD de cotizaciones sobre SQL. Clave natural: (tipo, fecha)."""
+
+    modelo = m.CotizacionDolar
 
     def _a_entidad(self, modelo: m.CotizacionDolar) -> CotizacionDolar:
         return _cotizacion_entidad(modelo)
@@ -480,12 +483,14 @@ class RepoCotizacionDolarSQL(
             valor_pesos=entidad.valor_pesos,
         )
 
-    def _select(self):
-        return select(m.CotizacionDolar).options(
-            selectinload(m.CotizacionDolar.tipo_cotizacion)
+    def _select(self) -> Select[tuple[m.CotizacionDolar]]:
+        return (
+            super()._select().options(selectinload(m.CotizacionDolar.tipo_cotizacion))
         )
 
-    def _buscar(self, sesion: Session, clave: tuple[str, date]):
+    def _buscar(
+        self, sesion: Session, clave: tuple[str, date]
+    ) -> m.CotizacionDolar | None:
         tipo, fecha = clave
         return sesion.scalar(
             select(m.CotizacionDolar)
@@ -500,17 +505,43 @@ class RepoCotizacionDolarSQL(
         modelo.fecha = entidad.fecha
         modelo.valor_pesos = entidad.valor_pesos
 
+    def _del_tipo(self, tipo: str) -> Select[tuple[m.CotizacionDolar]]:
+        """Cotizaciones de un tipo, sin orden (cada consulta pone el suyo)."""
+        return (
+            self._select()
+            .order_by(None)
+            .join(m.TipoCotizacion)
+            .where(m.TipoCotizacion.tipo == tipo)
+        )
+
     def leer_por_tipo_y_fecha(self, tipo: str, fecha: date) -> CotizacionDolar | None:
-        with self._conexion.crear_sesion() as sesion:
-            modelo = self._buscar(sesion, (tipo, fecha))
-            return self._a_entidad(modelo) if modelo else None
+        return self._leer_uno((tipo, fecha))
 
     def leer_historico_por_tipo(self, tipo: str) -> list[CotizacionDolar]:
-        with self._conexion.crear_sesion() as sesion:
-            stmt = (
-                self._select()
-                .join(m.TipoCotizacion)
-                .where(m.TipoCotizacion.tipo == tipo)
-                .order_by(m.CotizacionDolar.fecha)
+        return self._listar(self._del_tipo(tipo).order_by(m.CotizacionDolar.fecha))
+
+    def leer_ultima_por_tipo(self, tipo: str) -> CotizacionDolar | None:
+        ultima = self._listar(
+            self._del_tipo(tipo).order_by(m.CotizacionDolar.fecha.desc()).limit(1)
+        )
+        return ultima[0] if ultima else None
+
+    def leer_ultimas(self) -> list[CotizacionDolar]:
+        ultima_fecha = (
+            select(
+                m.CotizacionDolar.tipo_cotizacion_id,
+                func.max(m.CotizacionDolar.fecha).label("fecha"),
             )
-            return [self._a_entidad(modelo) for modelo in sesion.scalars(stmt).all()]
+            .group_by(m.CotizacionDolar.tipo_cotizacion_id)
+            .subquery()
+        )
+        return self._listar(
+            self._select().join(
+                ultima_fecha,
+                (
+                    m.CotizacionDolar.tipo_cotizacion_id
+                    == ultima_fecha.c.tipo_cotizacion_id
+                )
+                & (m.CotizacionDolar.fecha == ultima_fecha.c.fecha),
+            )
+        )

@@ -2,6 +2,16 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 06]
+
+- Listados ordenados por id: editar un registro ya no lo mueve de fila (la consola elige por número de fila).
+- `RepoSqlBase` con `@abstractmethod`, type hints en los hooks y helpers `_listar` / `_leer_uno` que reemplazan los `leer_por_*` repetidos.
+- `_id_por_clave` reemplaza los cinco `_id_*` casi idénticos.
+- Nuevo `utils.py` con `normalizar_codigo`, usado por la entidad `Moneda` y los repositorios.
+- Borrar un libro es atómico: el stock y los precios se borran por cascada en la misma transacción (antes eran tres transacciones).
+- `leer_ultima_por_tipo` y `leer_ultimas` en el repositorio de cotizaciones: la última cotización se pide con una consulta en lugar de traer todo el histórico.
+- Tests de orden estable, precio duplicado y últimas cotizaciones.
+
 ## [Ejercicio 05]
 
 - `poblar_base_de_datos` corre todo en una sola transacción: si falla una tabla, la base no queda a medio poblar.
