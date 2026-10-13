@@ -2,6 +2,15 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 07]
+
+- `.env` versionado con `API_URL` únicamente, como pide la consigna; las credenciales de la base pasan a `.env.local` (ignorado) o a los secrets de Colab.
+- `.env.example` renombrado a `.env.local.example`.
+- `utils.cargar_entorno()` centraliza `load_dotenv` (antes repetido en conexión y servicios); nunca pisa variables ya definidas.
+- La fecha de cada cotización se toma en hora argentina (`utils.fecha_argentina`): después de las 21 h la API ya informa el día siguiente en UTC.
+- Se ignoran las casas sin valor de venta.
+- Tests de zona horaria, idempotencia, casas sin venta y carga de `API_URL`.
+
 ## [Ejercicio 06]
 
 - Listados ordenados por id: editar un registro ya no lo mueve de fila (la consola elige por número de fila).

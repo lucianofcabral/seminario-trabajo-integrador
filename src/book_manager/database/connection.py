@@ -4,18 +4,19 @@ import os
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from dotenv import load_dotenv
 from sqlalchemy import URL, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-load_dotenv()
+from book_manager.utils import cargar_entorno
+
+cargar_entorno()
 
 
 class ConexionDB:
     """Maneja la conexión a la base de datos usando SQLAlchemy.
 
-    Construye la URL de conexión a partir de variables de entorno (archivo
-    `.env`) y expone una fábrica de sesiones. Las credenciales nunca quedan
+    Construye la URL de conexión a partir de variables de entorno (secrets de
+    Colab o archivo `.env.local`) y expone una fábrica de sesiones. Las credenciales nunca quedan
     escritas en el código.
     """
 

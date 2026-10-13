@@ -8,7 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
-*.env
+# .env se versiona (solo API_URL); los secretos van en .env.local
+.env.local
 .ruff_cache
 # Local Pi runtime state
 .atl/

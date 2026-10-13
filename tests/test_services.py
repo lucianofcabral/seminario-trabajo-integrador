@@ -1,5 +1,6 @@
 """Tests de la capa de servicios (reglas de negocio sobre SQL)."""
 
+import os
 from datetime import date
 
 import pytest
@@ -87,3 +88,56 @@ def test_obtener_cotizaciones_registra(conexion, monkeypatch):
     assert len(registradas) == 2
     assert servicio.cotizacion_del_dia("Blue", date(2026, 1, 1)) is not None
     assert servicio.cotizacion_del_dia("Oficial", date(2026, 1, 1)) is not None
+
+
+def test_fecha_de_usa_hora_argentina():
+    """Un instante de las 22 h de Argentina (01 h UTC) cuenta como ese día."""
+    item = {"fechaActualizacion": "2026-10-14T01:00:00.000Z"}
+    assert svc._fecha_de(item) == date(2026, 10, 13)
+
+
+def test_obtener_cotizaciones_ignora_casas_sin_venta(conexion, monkeypatch):
+    servicio = ServicioCotizacionDolar(conexion=conexion)
+    monkeypatch.setattr(
+        svc,
+        "_descargar_cotizaciones",
+        lambda: [
+            {
+                "casa": "blue",
+                "venta": None,
+                "fechaActualizacion": "2026-01-01T12:00:00Z",
+            },
+            {
+                "casa": "desconocida",
+                "venta": 10,
+                "fechaActualizacion": "2026-01-01T12:00:00Z",
+            },
+        ],
+    )
+
+    assert servicio.obtener_cotizaciones() == []
+
+
+def test_obtener_cotizaciones_es_idempotente(conexion, monkeypatch):
+    servicio = ServicioCotizacionDolar(conexion=conexion)
+    monkeypatch.setattr(
+        svc,
+        "_descargar_cotizaciones",
+        lambda: [
+            {
+                "casa": "blue",
+                "venta": 1540,
+                "fechaActualizacion": "2026-10-12T20:56:00.000Z",
+            }
+        ],
+    )
+
+    assert len(servicio.obtener_cotizaciones()) == 1
+    assert servicio.obtener_cotizaciones() == []
+
+
+def test_api_url_se_carga_del_env_versionado():
+    from book_manager.utils import cargar_entorno
+
+    cargar_entorno()
+    assert os.environ["API_URL"] == "https://dolarapi.com/v1/dolares"

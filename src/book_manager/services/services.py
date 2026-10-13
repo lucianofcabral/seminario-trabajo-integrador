@@ -6,9 +6,9 @@ uso y resuelven las relaciones. Trabajan con las claves naturales de cada entida
 
 import os
 from datetime import date, datetime
+from typing import Any
 
 import requests
-from dotenv import load_dotenv
 
 from book_manager.database.connection import ConexionDB
 from book_manager.entities.entities import (
@@ -43,8 +43,9 @@ from book_manager.repositories.sql_repository import (
     RepoStockSQL,
     RepoTipoCotizacionSQL,
 )
+from book_manager.utils import cargar_entorno, fecha_argentina
 
-load_dotenv()
+cargar_entorno()
 
 _CASA_A_TIPO: dict[str, str] = {
     "oficial": "Oficial",
@@ -60,7 +61,7 @@ _CASA_A_TIPO: dict[str, str] = {
 }
 
 
-def _descargar_cotizaciones() -> list[dict]:
+def _descargar_cotizaciones() -> list[dict[str, Any]]:
     """Descarga las cotizaciones del dólar desde la API configurada en `.env`."""
     url = os.environ.get("API_URL", "https://dolarapi.com/v1/dolares")
     respuesta = requests.get(url, timeout=10)
@@ -68,9 +69,13 @@ def _descargar_cotizaciones() -> list[dict]:
     return respuesta.json()
 
 
-def _fecha_de(item: dict) -> date:
-    """Extrae la fecha de la cotización desde `fechaActualizacion`."""
-    return datetime.fromisoformat(item["fechaActualizacion"]).date()
+def _fecha_de(item: dict[str, Any]) -> date:
+    """Fecha (en Argentina) de la cotización según `fechaActualizacion`.
+
+    La API informa el instante en UTC; después de las 21 h de Argentina ese
+    instante ya cae en el día siguiente en UTC.
+    """
+    return fecha_argentina(datetime.fromisoformat(item["fechaActualizacion"]))
 
 
 class ServicioBase[T: EntidadBase]:
@@ -325,8 +330,8 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
         """
         registradas: list[CotizacionDolar] = []
         for item in _descargar_cotizaciones():
-            tipo_nombre = _CASA_A_TIPO.get(item.get("casa"))
-            if tipo_nombre is None:
+            tipo_nombre = _CASA_A_TIPO.get(item.get("casa", ""))
+            if tipo_nombre is None or not item.get("venta"):
                 continue
             tipo = self._repo_tipo.leer_por_tipo(tipo_nombre)
             if tipo is None:
