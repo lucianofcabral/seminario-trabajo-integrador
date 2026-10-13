@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, String
+from sqlalchemy import Date, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# Montos exactos en la base (sin error de redondeo binario); en Python se leen
+# como float porque las entidades trabajan con float.
+Monto = Numeric(12, 2, asdecimal=False)
 
 
 class Base(DeclarativeBase):
@@ -55,8 +59,14 @@ class Libro(Base):
 
     editorial: Mapped[Editorial] = relationship(back_populates="libros")
     genero: Mapped[Genero] = relationship(back_populates="libros")
-    stock: Mapped[Stock | None] = relationship(back_populates="libro", uselist=False)
-    precios: Mapped[list[Precio]] = relationship(back_populates="libro")
+    # Al borrar un libro, el ORM borra su stock y sus precios en la misma
+    # transacción.
+    stock: Mapped[Stock | None] = relationship(
+        back_populates="libro", uselist=False, cascade="all, delete-orphan"
+    )
+    precios: Mapped[list[Precio]] = relationship(
+        back_populates="libro", cascade="all, delete-orphan"
+    )
 
 
 class Moneda(Base):
@@ -87,11 +97,12 @@ class Precio(Base):
     """Valor de un libro expresado en una moneda determinada."""
 
     __tablename__ = "precio"
+    __table_args__ = (UniqueConstraint("libro_id", "moneda_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     libro_id: Mapped[int] = mapped_column(ForeignKey("libro.id"))
     moneda_id: Mapped[int] = mapped_column(ForeignKey("moneda.id"))
-    valor: Mapped[float] = mapped_column(Float)
+    valor: Mapped[float] = mapped_column(Monto)
 
     libro: Mapped[Libro] = relationship(back_populates="precios")
     moneda: Mapped[Moneda] = relationship(back_populates="precios")
@@ -114,11 +125,12 @@ class CotizacionDolar(Base):
     """Registro histórico del valor del dólar para un tipo y una fecha."""
 
     __tablename__ = "cotizacion"
+    __table_args__ = (UniqueConstraint("tipo_cotizacion_id", "fecha"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo_cotizacion_id: Mapped[int] = mapped_column(ForeignKey("tipo_cotizacion.id"))
     fecha: Mapped[date] = mapped_column(Date)
-    valor_pesos: Mapped[float] = mapped_column(Float)
+    valor_pesos: Mapped[float] = mapped_column(Monto)
 
     tipo_cotizacion: Mapped[TipoCotizacion] = relationship(
         back_populates="cotizaciones"

@@ -2,6 +2,13 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 04]
+
+- `UniqueConstraint` en `precio (libro_id, moneda_id)` y en `cotizacion (tipo_cotizacion_id, fecha)`: la base rechaza duplicados aunque se salteen los servicios.
+- Montos (`precio.valor`, `cotizacion.valor_pesos`) como `Numeric(12, 2)` en lugar de `Float`.
+- `cascade="all, delete-orphan"` en `Libro.stock` y `Libro.precios`: borrar un libro borra su stock y precios en la misma transacción.
+- Tests de unicidad y de borrado en cascada en `tests/test_models.py`.
+
 ## [Ejercicio 08]
 
 - Menú principal con 3 opciones nuevas: obtener cotizaciones por API, precios bimonetarios y exportar precios a CSV.

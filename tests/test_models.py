@@ -1,16 +1,22 @@
 """Tests de los modelos ORM (tablas y relaciones)."""
 
-from sqlalchemy import create_engine, select
+from datetime import date
+
+import pytest
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from book_manager.models.models import (
     Base,
+    CotizacionDolar,
     Editorial,
     Genero,
     Libro,
     Moneda,
     Precio,
     Stock,
+    TipoCotizacion,
 )
 
 TABLAS = {
@@ -71,3 +77,76 @@ def test_relaciones_entre_modelos(tmp_path):
         assert libro_db.stock.existencia == 10
         assert libro_db.precios[0].valor == 68.45
         assert libro_db.precios[0].moneda.codigo == "USD"
+
+
+def _libro_con_precio(sesion: Session) -> tuple[Libro, Moneda]:
+    """Crea un libro con stock y un precio en USD para los tests."""
+    editorial = Editorial(
+        proveedor="Editorial Alba",
+        pais="Argentina",
+        provincia="Buenos Aires",
+        localidad="CABA",
+        domicilio="Av. Siempre Viva 123",
+        telefono="1145678901",
+        email="contacto@editorialalba.com",
+        responsable="Juan Pérez",
+    )
+    libro = Libro(
+        isbn="9780306406157",
+        titulo="El eco del silencio",
+        autor="Marina Solís",
+        editorial=editorial,
+        genero=Genero(genero="Ficción"),
+    )
+    moneda = Moneda(codigo="USD", nombre="dólar estadounidense")
+    sesion.add_all([libro, Stock(libro=libro, existencia=3)])
+    sesion.add(Precio(libro=libro, moneda=moneda, valor=10))
+    sesion.commit()
+    return libro, moneda
+
+
+def test_precio_unico_por_libro_y_moneda(tmp_path):
+    """La base rechaza dos precios del mismo libro en la misma moneda."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as sesion:
+        libro, moneda = _libro_con_precio(sesion)
+        sesion.add(Precio(libro=libro, moneda=moneda, valor=20))
+        with pytest.raises(IntegrityError):
+            sesion.commit()
+
+
+def test_cotizacion_unica_por_tipo_y_fecha(tmp_path):
+    """La base rechaza dos cotizaciones del mismo tipo en la misma fecha."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as sesion:
+        tipo = TipoCotizacion(tipo="Oficial")
+        sesion.add(
+            CotizacionDolar(
+                tipo_cotizacion=tipo, fecha=date(2026, 10, 13), valor_pesos=1535
+            )
+        )
+        sesion.add(
+            CotizacionDolar(
+                tipo_cotizacion=tipo, fecha=date(2026, 10, 13), valor_pesos=1540
+            )
+        )
+        with pytest.raises(IntegrityError):
+            sesion.commit()
+
+
+def test_borrar_libro_borra_stock_y_precios(tmp_path):
+    """Al borrar un libro se borran su stock y sus precios en la misma transacción."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as sesion:
+        libro, _ = _libro_con_precio(sesion)
+        sesion.delete(libro)
+        sesion.commit()
+
+        assert sesion.scalar(select(func.count()).select_from(Stock)) == 0
+        assert sesion.scalar(select(func.count()).select_from(Precio)) == 0
