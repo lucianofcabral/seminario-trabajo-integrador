@@ -126,12 +126,18 @@ def test_cotizacion_unica_por_tipo_y_fecha(tmp_path):
         tipo = TipoCotizacion(tipo="Oficial")
         sesion.add(
             CotizacionDolar(
-                tipo_cotizacion=tipo, fecha=date(2026, 10, 13), valor_pesos=1535
+                tipo_cotizacion=tipo,
+                fecha=date(2026, 10, 13),
+                valor_compra=1530.0,
+                valor_venta=1535.0,
             )
         )
         sesion.add(
             CotizacionDolar(
-                tipo_cotizacion=tipo, fecha=date(2026, 10, 13), valor_pesos=1540
+                tipo_cotizacion=tipo,
+                fecha=date(2026, 10, 13),
+                valor_compra=1535.0,
+                valor_venta=1540.0,
             )
         )
         with pytest.raises(IntegrityError):

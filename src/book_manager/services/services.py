@@ -334,7 +334,7 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
         registradas: list[CotizacionDolar] = []
         for item in _descargar_cotizaciones():
             tipo_nombre = _CASA_A_TIPO.get(item.get("casa", ""))
-            if tipo_nombre is None or not item.get("venta"):
+            if tipo_nombre is None or not item.get("compra") or not item.get("venta"):
                 continue
             tipo = self._repo_tipo.leer_por_tipo(tipo_nombre)
             if tipo is None:
@@ -345,7 +345,8 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
             cotizacion = CotizacionDolar(
                 tipo_cotizacion=tipo,
                 fecha=fecha,
-                valor_pesos=float(item["venta"]),
+                valor_compra=float(item["compra"]),
+                valor_venta=float(item["venta"]),
             )
             registradas.append(self.crear(cotizacion))
         return registradas
@@ -425,7 +426,7 @@ class ServicioListaPrecios:
         cotizacion = self._repo_cotizacion.leer_ultima_por_tipo(tipo)
         if cotizacion is None:
             raise ValueError(f"No hay cotizaciones del dólar {tipo!r}.")
-        return cotizacion, self._convertir(cotizacion.valor_pesos)
+        return cotizacion, self._convertir(cotizacion.valor_venta)
 
     def exportar_csv(self, ruta: Path) -> list[CotizacionDolar]:
         """Exporta cada precio en su moneda y en pesos para cada tipo de dólar.
@@ -447,7 +448,7 @@ class ServicioListaPrecios:
                 + [f"ARS {c.tipo_cotizacion.tipo}" for c in cotizaciones]
             )
             for precio in base.values():
-                pesos = [_usd_y_ars(precio, c.valor_pesos)[1] for c in cotizaciones]
+                pesos = [_usd_y_ars(precio, c.valor_venta)[1] for c in cotizaciones]
                 escritor.writerow(
                     [precio.libro.isbn, precio.libro.titulo, precio.moneda.codigo]
                     + [round(valor, 2) for valor in (precio.valor, *pesos)]

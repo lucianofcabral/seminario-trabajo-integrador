@@ -73,8 +73,8 @@ def test_eliminar_libro_borra_stock_y_precios(conexion_poblada):
     assert servicio.precios_de(isbn) == []
 
 
-def test_obtener_cotizaciones_registra(conexion, monkeypatch):
-    """Descarga de la API y registra una cotización por tipo."""
+def test_obtener_cotizaciones_registra_compra_y_venta(conexion, monkeypatch):
+    """Descarga de la API y registra compra y venta de cada tipo."""
     servicio = ServicioCotizacionDolar(conexion=conexion)
     monkeypatch.setattr(
         svc,
@@ -82,11 +82,13 @@ def test_obtener_cotizaciones_registra(conexion, monkeypatch):
         lambda: [
             {
                 "casa": "blue",
+                "compra": 1200.0,
                 "venta": 1240.0,
                 "fechaActualizacion": "2026-01-01T00:00:00-03:00",
             },
             {
                 "casa": "oficial",
+                "compra": 1100.0,
                 "venta": 1115.0,
                 "fechaActualizacion": "2026-01-01T00:00:00-03:00",
             },
@@ -96,8 +98,12 @@ def test_obtener_cotizaciones_registra(conexion, monkeypatch):
     registradas = servicio.obtener_cotizaciones()
 
     assert len(registradas) == 2
-    assert servicio.cotizacion_del_dia("Blue", date(2026, 1, 1)) is not None
-    assert servicio.cotizacion_del_dia("Oficial", date(2026, 1, 1)) is not None
+    blue = servicio.cotizacion_del_dia("Blue", date(2026, 1, 1))
+    oficial = servicio.cotizacion_del_dia("Oficial", date(2026, 1, 1))
+    assert blue is not None
+    assert oficial is not None
+    assert (blue.valor_compra, blue.valor_venta) == (1200.0, 1240.0)
+    assert (oficial.valor_compra, oficial.valor_venta) == (1100.0, 1115.0)
 
 
 def test_fecha_de_usa_hora_argentina():
@@ -106,7 +112,7 @@ def test_fecha_de_usa_hora_argentina():
     assert svc._fecha_de(item) == date(2026, 10, 13)
 
 
-def test_obtener_cotizaciones_ignora_casas_sin_venta(conexion, monkeypatch):
+def test_obtener_cotizaciones_ignora_casas_sin_compra_o_venta(conexion, monkeypatch):
     servicio = ServicioCotizacionDolar(conexion=conexion)
     monkeypatch.setattr(
         svc,
@@ -114,11 +120,19 @@ def test_obtener_cotizaciones_ignora_casas_sin_venta(conexion, monkeypatch):
         lambda: [
             {
                 "casa": "blue",
+                "compra": 100,
                 "venta": None,
                 "fechaActualizacion": "2026-01-01T12:00:00Z",
             },
             {
+                "casa": "oficial",
+                "compra": None,
+                "venta": 10,
+                "fechaActualizacion": "2026-01-01T12:00:00Z",
+            },
+            {
                 "casa": "desconocida",
+                "compra": 10,
                 "venta": 10,
                 "fechaActualizacion": "2026-01-01T12:00:00Z",
             },
@@ -136,6 +150,7 @@ def test_obtener_cotizaciones_es_idempotente(conexion, monkeypatch):
         lambda: [
             {
                 "casa": "blue",
+                "compra": 1515,
                 "venta": 1540,
                 "fechaActualizacion": "2026-10-12T20:56:00.000Z",
             }
@@ -161,7 +176,8 @@ def _con_cotizaciones(conexion_poblada) -> None:
             CotizacionDolar(
                 tipo_cotizacion=TipoCotizacion(tipo=tipo),
                 fecha=date.today(),
-                valor_pesos=valor,
+                valor_compra=valor - 10.0,
+                valor_venta=valor,
             )
         )
 

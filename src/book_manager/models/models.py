@@ -130,7 +130,8 @@ class CotizacionDolar(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo_cotizacion_id: Mapped[int] = mapped_column(ForeignKey("tipo_cotizacion.id"))
     fecha: Mapped[date] = mapped_column(Date)
-    valor_pesos: Mapped[float] = mapped_column(Monto)
+    valor_compra: Mapped[float] = mapped_column(Monto)
+    valor_venta: Mapped[float] = mapped_column(Monto)
 
     tipo_cotizacion: Mapped[TipoCotizacion] = relationship(
         back_populates="cotizaciones"

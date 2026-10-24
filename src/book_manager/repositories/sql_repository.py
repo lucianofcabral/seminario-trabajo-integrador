@@ -95,7 +95,8 @@ def _cotizacion_entidad(modelo: m.CotizacionDolar) -> CotizacionDolar:
     return CotizacionDolar(
         tipo_cotizacion=_tipo_entidad(modelo.tipo_cotizacion),
         fecha=modelo.fecha,
-        valor_pesos=modelo.valor_pesos,
+        valor_compra=modelo.valor_compra,
+        valor_venta=modelo.valor_venta,
     )
 
 
@@ -480,7 +481,8 @@ class RepoCotizacionDolarSQL(
         return m.CotizacionDolar(
             tipo_cotizacion_id=_id_tipo(sesion, entidad.tipo_cotizacion.tipo),
             fecha=entidad.fecha,
-            valor_pesos=entidad.valor_pesos,
+            valor_compra=entidad.valor_compra,
+            valor_venta=entidad.valor_venta,
         )
 
     def _select(self) -> Select[tuple[m.CotizacionDolar]]:
@@ -503,7 +505,8 @@ class RepoCotizacionDolarSQL(
     ) -> None:
         modelo.tipo_cotizacion_id = _id_tipo(sesion, entidad.tipo_cotizacion.tipo)
         modelo.fecha = entidad.fecha
-        modelo.valor_pesos = entidad.valor_pesos
+        modelo.valor_compra = entidad.valor_compra
+        modelo.valor_venta = entidad.valor_venta
 
     def _del_tipo(self, tipo: str) -> Select[tuple[m.CotizacionDolar]]:
         """Cotizaciones de un tipo, sin orden (cada consulta pone el suyo)."""

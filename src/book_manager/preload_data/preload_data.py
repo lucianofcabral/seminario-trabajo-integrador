@@ -595,14 +595,18 @@ def generar_csv_cotizacion(renovar: bool = False, dias: int = 365) -> None:
         return
 
     ultima = date.today() - timedelta(days=DIAS_SIN_DATOS_DE_EJEMPLO)
-    cotis = [
-        {
-            "tipo_cotizacion_id": random.randint(1, len(TIPOS_COTIZACION)),
-            "fecha": (ultima - timedelta(days=atras)).isoformat(),
-            "valor_pesos": round(random.randint(140000, 180000) / 100, 2),
-        }
-        for atras in range(dias - 1, -1, -1)
-    ]
+    cotis = []
+    for atras in range(dias - 1, -1, -1):
+        venta = round(random.randint(140000, 180000) / 100, 2)
+        compra = round(venta - random.randint(5, 50) / 100, 2)
+        cotis.append(
+            {
+                "tipo_cotizacion_id": random.randint(1, len(TIPOS_COTIZACION)),
+                "fecha": (ultima - timedelta(days=atras)).isoformat(),
+                "valor_compra": compra,
+                "valor_venta": venta,
+            }
+        )
 
     _generar_csv(data=cotis, path=path, renovar=renovar, asignar_id=True)
 

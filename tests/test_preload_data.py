@@ -28,13 +28,15 @@ def test_generar_csv_stock_usa_existencia(tmp_path, monkeypatch):
 
 
 def test_generar_csv_cotizacion_usa_campos_del_modelo(tmp_path, monkeypatch):
-    """El CSV de cotización debe usar `tipo_cotizacion_id` y `valor_pesos`."""
+    """El CSV de cotización debe usar `tipo_cotizacion_id`, compra y venta."""
     monkeypatch.setattr(preload_data, "CSV_FOLDER", tmp_path)
     preload_data.generar_csv_cotizacion(renovar=True)
 
     header = _leer_header(tmp_path / "cotizacion.csv")
     assert "tipo_cotizacion_id" in header
-    assert "valor_pesos" in header
+    assert "valor_compra" in header
+    assert "valor_venta" in header
+    assert "valor_pesos" not in header
 
 
 def test_generar_csv_tipo_cotizacion_tiene_diez_registros(tmp_path, monkeypatch):

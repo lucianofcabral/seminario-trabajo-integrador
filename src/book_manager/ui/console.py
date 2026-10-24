@@ -197,12 +197,14 @@ def _construir_tablas(conexion: ConexionDB) -> list[Tabla]:
             campos=(
                 Campo("tipo_cotizacion", "Tipo", "fk", "tipo_cotizacion"),
                 Campo("fecha", "Fecha (AAAA-MM-DD)", "fecha"),
-                Campo("valor_pesos", "Valor en pesos", "float"),
+                Campo("valor_compra", "Compra (ARS)", "float"),
+                Campo("valor_venta", "Venta (ARS)", "float"),
             ),
             columnas=(
                 ("tipo_cotizacion", "Tipo"),
                 ("fecha", "Fecha"),
-                ("valor_pesos", "Valor (ARS)"),
+                ("valor_compra", "Compra (ARS)"),
+                ("valor_venta", "Venta (ARS)"),
             ),
             texto=lambda e: f"{e.tipo_cotizacion.tipo} {e.fecha}",
             clave_de=lambda e: (e.tipo_cotizacion.tipo, e.fecha),
@@ -559,7 +561,8 @@ def _obtener_cotizaciones_api(conexion: ConexionDB) -> None:
     for cotizacion in registradas:
         print(
             f"  {cotizacion.tipo_cotizacion.tipo:<10} {cotizacion.fecha}"
-            f"  $ {cotizacion.valor_pesos:.2f}"
+            f"  compra $ {cotizacion.valor_compra:.2f}"
+            f" / venta $ {cotizacion.valor_venta:.2f}"
         )
     print(f"Se registraron {len(registradas)} cotización(es) nuevas.")
 
@@ -574,7 +577,7 @@ def _pedir_cotizacion(servicio: ServicioListaPrecios) -> CotizacionDolar | None:
     for i, cotizacion in enumerate(cotizaciones, start=1):
         print(
             f"  {i}. {cotizacion.tipo_cotizacion.tipo:<10}"
-            f" $ {cotizacion.valor_pesos:.2f} ({cotizacion.fecha})"
+            f" $ {cotizacion.valor_venta:.2f} ({cotizacion.fecha})"
         )
     numero = _pedir_numero(len(cotizaciones))
     return cotizaciones[numero - 1] if numero is not None else None
@@ -597,7 +600,7 @@ def _precios_bimonetarios(conexion: ConexionDB) -> None:
         for p in precios
     ]
     print()
-    print(f"Dólar {tipo} del {cotizacion.fecha}: $ {cotizacion.valor_pesos:.2f}")
+    print(f"Dólar {tipo} del {cotizacion.fecha}: $ {cotizacion.valor_venta:.2f}")
     print(
         render_tabla(
             filas,

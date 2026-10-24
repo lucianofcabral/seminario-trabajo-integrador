@@ -103,4 +103,9 @@ class CotizacionDolar(EntidadBase):
 
     tipo_cotizacion: TipoCotizacion = Field(..., description="Tipo de cotización")
     fecha: date = Field(..., description="Fecha de la cotización")
-    valor_pesos: float = Field(..., gt=0, description="Valor del dólar en pesos")
+    valor_compra: float = Field(
+        ..., gt=0, description="Precio de compra del dólar en pesos"
+    )
+    valor_venta: float = Field(
+        ..., gt=0, description="Precio de venta del dólar en pesos"
+    )

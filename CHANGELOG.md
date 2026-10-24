@@ -2,6 +2,11 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Correcciones]
+
+- **Ej 02** — Manejo de error de conexión: `ConexionDB` lanza `ErrorConexion` con mensaje claro cuando falta una variable de entorno, `DB_PORT` no es numérico o la base no responde al conectar, en lugar de un `KeyError` o un traceback de SQLAlchemy.
+- **Ej 07** — La cotización guarda compra y venta: `cotizacion.valor_pesos` se renombra a `valor_venta` y se agrega `valor_compra`. `obtener_cotizaciones` registra ambos valores y descarta las casas sin compra o sin venta. CSV, SQL y precarga de ejemplo regenerados.
+
 ## [Ejercicio 01]
 
 - README al día con el Sprint 2: configuración (`.env`, `.env.local` y secrets de Colab), menú de reportes, reglas de unicidad y estructura sobre SQLAlchemy.
