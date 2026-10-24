@@ -2,10 +2,24 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
-## [Correcciones]
+## [Ejercicio 08]
 
-- **Ej 02** — Manejo de error de conexión: `ConexionDB` lanza `ErrorConexion` con mensaje claro cuando falta una variable de entorno, `DB_PORT` no es numérico o la base no responde al conectar, en lugar de un `KeyError` o un traceback de SQLAlchemy.
-- **Ej 07** — La cotización guarda compra y venta: `cotizacion.valor_pesos` se renombra a `valor_venta` y se agrega `valor_compra`. `obtener_cotizaciones` registra ambos valores y descarta las casas sin compra o sin venta. CSV, SQL y precarga de ejemplo regenerados.
+- Demo en el notebook de las opciones 9, 10 y 11 del menú: obtener cotizaciones por API, lista de precios bimonetaria y exportación a CSV, ejecutando `main()` con entrada simulada.
+
+## [Ejercicio 07]
+
+- La cotización guarda compra y venta: `cotizacion.valor_pesos` se renombra a `valor_venta` y se agrega `valor_compra`.
+- `obtener_cotizaciones` registra ambos valores y descarta las casas sin compra o sin venta.
+- `cotizacion.csv`, `cotizacion.sql` y la precarga de ejemplo regenerados; la consola muestra compra y venta.
+
+## [Ejercicio 06]
+
+- Demo en el notebook del CRUD: listado y alta o modificación de cada modelo, en orden, ejecutando `main()` con entrada simulada.
+
+## [Ejercicio 02]
+
+- Manejo de error de conexión: `ConexionDB` lanza `ErrorConexion` con mensaje claro cuando falta una variable de entorno, `DB_PORT` no es numérico o la base no responde al conectar, en lugar de un `KeyError` o un traceback de SQLAlchemy.
+- La celda de secrets del notebook carga las credenciales de la base con `userdata.get`, nunca en claro.
 
 ## [Ejercicio 01]
 
