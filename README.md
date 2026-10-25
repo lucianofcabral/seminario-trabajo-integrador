@@ -131,6 +131,7 @@ por nombre, no por id.
 | Monedas | código, nombre |
 | Tipos de cotización | tipo (Blue, MEP, Oficial, CCL, Mayorista, Cripto, Tarjeta, Solidario, Blend, Turista) |
 | Cotizaciones | tipo, fecha, valor en pesos |
+| Precios web | libro, título, autor, precio, imagen, formas de pago, descripción, URL, fecha de extracción |
 
 ## Datos de ejemplo
 
@@ -146,6 +147,24 @@ cotizaciones que termina una semana antes de la generación (así las cotizacion
 reales de la API quedan como las más recientes). Los archivos quedan en
 `src/book_manager/migrations/csv/`; la migración genera los `.sql` en
 `src/book_manager/migrations/sql/`.
+
+## Scraper de Cúspide
+
+El spider `cuspide` busca los títulos del catálogo en Cúspide y persiste precio,
+imagen, formas de pago y descripción en la tabla `precio_web` (un registro por
+ejecución, para conservar el histórico). Solo se visitan los 10 primeros
+resultados de cada búsqueda y únicamente los libros del catálogo propio.
+
+```bash
+# catálogo desde la base propia
+uv run python -c "from book_manager.scraper.runner import obtener_catalogo, ejecutar_scraping; ejecutar_scraping(obtener_catalogo('base'))"
+
+# catálogo desde el CSV de libros
+uv run python -c "from book_manager.scraper.runner import obtener_catalogo, ejecutar_scraping; ejecutar_scraping(obtener_catalogo('csv'))"
+
+# títulos escritos a mano
+uv run python -c "from book_manager.scraper.runner import obtener_catalogo, ejecutar_scraping; ejecutar_scraping(obtener_catalogo('manual', ['Cien años de soledad']))"
+```
 
 ## Estructura
 

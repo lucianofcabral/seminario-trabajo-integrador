@@ -2,6 +2,15 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 03]
+
+- Scraper `CuspideSpider` (scrapy) que busca los títulos del catálogo en Cúspide y extrae precio, url de imagen, formas de pago y descripción.
+- `CuspideItem` + `CuspideLoader`: procesadores para el precio argentino (`$ 55.999,00` → `55999.0`) y para las formas de pago.
+- Pipeline `PrecioWebPipeline` que persiste cada resultado en la tabla `precio_web` (con fecha de extracción).
+- `runner.obtener_catalogo()` (origen base / CSV / manual) y `runner.ejecutar_scraping()`.
+- Solo se visitan los 10 primeros resultados por búsqueda y únicamente libros del catálogo.
+- Tests sin red (21) con el HTML de Cúspide embebido.
+
 ## [Ejercicio 01]
 
 - Rama `Sprint_3` creada desde `Sprint_2` para el Sprint 3.

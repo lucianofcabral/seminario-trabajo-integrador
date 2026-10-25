@@ -136,3 +136,26 @@ class CotizacionDolar(Base):
     tipo_cotizacion: Mapped[TipoCotizacion] = relationship(
         back_populates="cotizaciones"
     )
+
+
+class PrecioWeb(Base):
+    """Precio y datos de un libro obtenidos del sitio de Cúspide (scraping).
+
+    Cada ejecución del scraper agrega un registro nuevo con su fecha de
+    extracción, de modo que queda un histórico de precios web por libro.
+    """
+
+    __tablename__ = "precio_web"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    libro_id: Mapped[int] = mapped_column(ForeignKey("libro.id"))
+    titulo: Mapped[str] = mapped_column(String(200))
+    autor: Mapped[str | None] = mapped_column(String(100))
+    precio: Mapped[float] = mapped_column(Monto)
+    url_imagen: Mapped[str] = mapped_column(String(500))
+    formas_pago: Mapped[str] = mapped_column(String(500))
+    descripcion: Mapped[str] = mapped_column(String(5000))
+    url: Mapped[str] = mapped_column(String(500))
+    fecha_extraccion: Mapped[date] = mapped_column(Date)
+
+    libro: Mapped[Libro] = relationship()

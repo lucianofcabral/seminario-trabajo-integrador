@@ -548,3 +548,51 @@ class RepoCotizacionDolarSQL(
                 & (m.CotizacionDolar.fecha == ultima_fecha.c.fecha),
             )
         )
+
+
+class RepoPrecioWebSQL:
+    """Persistencia de los datos de Cúspide obtenidos por el scraper.
+
+    A diferencia de los repositorios CRUD, `PrecioWeb` es un registro de
+    observación generado automáticamente: solo se crea y se lee, no se edita
+    ni se borra por el usuario. Trabaja con el modelo ORM directamente.
+    """
+
+    def __init__(self, conexion: ConexionDB) -> None:
+        self._conexion = conexion
+
+    def crear(self, registro: m.PrecioWeb) -> m.PrecioWeb:
+        """Guarda un registro de precio web y lo devuelve con su id."""
+        with self._conexion.transaccion() as sesion:
+            sesion.add(registro)
+            sesion.flush()  # asigna el id antes de salir de la transacción
+            sesion.expunge(registro)  # evita el refresh posterior sobre un objeto detached
+        return registro
+
+    def leer_todos(self) -> list[m.PrecioWeb]:
+        """Devuelve todos los registros, ordenados por id."""
+        with self._conexion.crear_sesion() as sesion:
+            return list(sesion.scalars(select(m.PrecioWeb).order_by(m.PrecioWeb.id)))
+
+    def leer_por_libro(self, isbn: str) -> list[m.PrecioWeb]:
+        """Devuelve el histórico de precios web de un libro, por ISBN."""
+        with self._conexion.crear_sesion() as sesion:
+            return list(
+                sesion.scalars(
+                    select(m.PrecioWeb)
+                    .join(m.Libro)
+                    .where(m.Libro.isbn == isbn)
+                    .order_by(m.PrecioWeb.fecha_extraccion, m.PrecioWeb.id)
+                )
+            )
+
+    def leer_ultima_por_libro(self, isbn: str) -> m.PrecioWeb | None:
+        """Devuelve el último registro de precio web de un libro, o None."""
+        with self._conexion.crear_sesion() as sesion:
+            return sesion.scalar(
+                select(m.PrecioWeb)
+                .join(m.Libro)
+                .where(m.Libro.isbn == isbn)
+                .order_by(m.PrecioWeb.fecha_extraccion.desc(), m.PrecioWeb.id.desc())
+                .limit(1)
+            )
