@@ -4,4 +4,5 @@ pycountry>=22.3
 pydantic[email]>=2.5
 python-dotenv>=1.0
 requests>=2.31
+scrapy>=2.19
 sqlalchemy>=2.0

@@ -1,6 +1,6 @@
 # book-manager
 
-**Sprint actual: Sprint 2**
+**Sprint actual: Sprint 3**
 
 Gestor de libros por terminal. Lleva el registro de libros, editoriales, géneros,
 stock y precios en una base de datos relacional (SQLAlchemy sobre PostgreSQL/Supabase),
@@ -10,10 +10,17 @@ interactivo.
 ## Objetivo
 
 Aplicar los conocimientos adquiridos en programación orientada a objetos, en bases
-de datos relacionales y en consumo de APIs externas, migrando la persistencia en
-archivos del Sprint 1 a una base de datos relacional con SQLAlchemy.
+de datos relacionales, en consumo de APIs externas y en scraping web, migrando la
+persistencia en archivos del Sprint 1 a una base de datos relacional con SQLAlchemy
+y comparando los precios propios con los de la competencia.
 
 ## Introducción y contexto
+
+### Sprint 3
+
+En esta entrega se descargan datos de la web desde el sitio de Cúspide para
+comparar los precios propios con los de la competencia: un scraper con scrapy,
+alertas por diferencias de precio, reportes en Excel y auditoría de operaciones.
 
 ### Sprint 2
 
@@ -152,6 +159,8 @@ src/book_manager/
   preload_data/   generación de los datos de ejemplo
   migrations/     CSV del TP1, .sql generados y la migración
   ui/             consola interactiva y formateo de tablas
+  scraper/        scraper de Cúspide con scrapy
+  reportes/       reportes Excel generados
   utils.py        funciones auxiliares compartidas
   main.py         punto de entrada
 tests/            tests con pytest (sobre SQLite)

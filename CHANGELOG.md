@@ -2,6 +2,15 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 01]
+
+- Rama `Sprint_3` creada desde `Sprint_2` para el Sprint 3.
+- Nuevos paquetes `scraper/` (estructura del scraper scrapy) y `reportes/` (reportes Excel).
+- `scrapy` agregado a las dependencias (`pyproject.toml` y `requirements.txt`).
+- `.gitignore` ignora los notebooks (`*.ipynb`).
+- `.env` versiona solo `API_URL`; las credenciales de la base van en `.env.local` (ignorado) o en los secrets de Colab.
+- README al día con el Sprint 3.
+
 ## [Ejercicio 08]
 
 - Demo en el notebook de las opciones 9, 10 y 11 del menú: obtener cotizaciones por API, lista de precios bimonetaria y exportación a CSV, ejecutando `main()` con entrada simulada.
