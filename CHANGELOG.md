@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 04]
+
+- Comparación del precio interno con el precio web de Cúspide: el interno (USD) se convierte a pesos con la última cotización oficial (`valor_venta`) y la diferencia es `precio_web - precio_interno`.
+- `ServicioComparacionPrecios` con `comparar()`, `alertas(umbral)` y `exportar_alertas_csv()`.
+- Al ejecutar el scraper con un umbral (en pesos), se genera `exports/alertas_precios.csv` con los libros cuya diferencia absoluta supera el umbral.
+- `RepoPrecioWebSQL.leer_ultimas_por_libro()`: último precio web de cada libro en una sola consulta.
+- Tests sin red (18).
+
 ## [Ejercicio 03]
 
 - Scraper `CuspideSpider` (scrapy) que busca los títulos del catálogo en Cúspide y extrae precio, url de imagen, formas de pago y descripción.

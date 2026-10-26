@@ -43,6 +43,7 @@ from book_manager.repositories.sql_repository import (
     RepoLibroSQL,
     RepoMonedaSQL,
     RepoPrecioSQL,
+    RepoPrecioWebSQL,
     RepoStockSQL,
     RepoTipoCotizacionSQL,
 )
@@ -468,3 +469,132 @@ class ServicioListaPrecios:
                 )
             )
         return filas
+
+
+# El precio web de Cúspide está en pesos: el interno se convierte con el dólar
+# oficial (valor de venta), el mismo criterio que la lista bimonetaria.
+TIPO_COTIZACION_COMPARACION = "Oficial"
+
+COLUMNAS_ALERTAS = [
+    "isbn",
+    "titulo",
+    "precio_interno",
+    "precio_web",
+    "diferencia",
+    "fecha_extraccion",
+]
+
+
+@dataclass(frozen=True)
+class ComparacionPrecio:
+    """Precio interno y precio web de un libro, ambos en pesos, y su diferencia.
+
+    `diferencia` conserva el signo: es positiva si el precio web es más caro
+    que el interno y negativa si es más barato.
+    """
+
+    isbn: str
+    titulo: str
+    precio_interno: float
+    precio_web: float
+    diferencia: float
+    fecha_extraccion: date
+
+
+class ServicioComparacionPrecios:
+    """Compara el precio interno con el precio web de Cúspide y alerta.
+
+    El precio interno se guarda en USD (o en ARS) y se convierte a pesos con la
+    última cotización del dólar oficial; el precio web ya viene en pesos. Solo
+    se comparan los libros que tienen precio web, es decir, los que el scraper
+    encontró en Cúspide. La diferencia es `precio_web - precio_interno` y una
+    alerta se dispara cuando su valor absoluto supera el umbral en pesos que
+    recibe cada ejecución.
+    """
+
+    def __init__(
+        self,
+        repo_precio: IRepositorioPrecio | None = None,
+        repo_cotizacion: IRepositorioCotizacionDolar | None = None,
+        repo_precio_web: RepoPrecioWebSQL | None = None,
+        conexion: ConexionDB | None = None,
+    ) -> None:
+        if repo_precio is None or repo_cotizacion is None or repo_precio_web is None:
+            conexion = conexion or ConexionDB()
+        self._lista = ServicioListaPrecios(
+            repo_precio=repo_precio, repo_cotizacion=repo_cotizacion, conexion=conexion
+        )
+        self._repo_precio_web = repo_precio_web or RepoPrecioWebSQL(conexion)
+
+    def comparar(self) -> list[ComparacionPrecio]:
+        """Compara en pesos el precio interno y el último precio web de cada libro.
+
+        Returns:
+            Una comparación por libro con precio web conocido, ordenada por ISBN.
+
+        Raises:
+            ValueError: Si no hay cotizaciones del dólar oficial registradas.
+        """
+        _, filas = self._lista.lista_bimonetaria(TIPO_COTIZACION_COMPARACION)
+        web_por_libro = self._repo_precio_web.leer_ultimas_por_libro()
+        comparaciones: list[ComparacionPrecio] = []
+        for fila in filas:
+            web = web_por_libro.get(fila.isbn)
+            if web is None:
+                continue
+            precio_interno = round(fila.ars, 2)
+            precio_web = round(web.precio, 2)
+            comparaciones.append(
+                ComparacionPrecio(
+                    isbn=fila.isbn,
+                    titulo=fila.titulo,
+                    precio_interno=precio_interno,
+                    precio_web=precio_web,
+                    diferencia=round(precio_web - precio_interno, 2),
+                    fecha_extraccion=web.fecha_extraccion,
+                )
+            )
+        return comparaciones
+
+    def alertas(self, umbral: float) -> list[ComparacionPrecio]:
+        """Comparaciones cuya diferencia absoluta supera `umbral` (en pesos).
+
+        Raises:
+            ValueError: Si el umbral es negativo.
+        """
+        if umbral < 0:
+            raise ValueError("El umbral de diferencia no puede ser negativo.")
+        return [
+            comparacion
+            for comparacion in self.comparar()
+            if abs(comparacion.diferencia) > umbral
+        ]
+
+    def exportar_alertas_csv(
+        self, umbral: float, ruta: Path
+    ) -> list[ComparacionPrecio]:
+        """Escribe en `ruta` el CSV de alertas (cabecera y una fila por alerta).
+
+        Escribe siempre el archivo, aunque no haya alertas: así cada ejecución
+        del scraper deja un archivo descargable para analizar los precios.
+
+        Returns:
+            Las alertas exportadas.
+        """
+        alertas = self.alertas(umbral)
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        with ruta.open("w", newline="", encoding="utf-8") as archivo:
+            escritor = csv.writer(archivo)
+            escritor.writerow(COLUMNAS_ALERTAS)
+            for alerta in alertas:
+                escritor.writerow(
+                    [
+                        alerta.isbn,
+                        alerta.titulo,
+                        alerta.precio_interno,
+                        alerta.precio_web,
+                        alerta.diferencia,
+                        alerta.fecha_extraccion.isoformat(),
+                    ]
+                )
+        return alertas

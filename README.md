@@ -130,7 +130,7 @@ por nombre, no por id.
 | Precios | libro, moneda, valor |
 | Monedas | código, nombre |
 | Tipos de cotización | tipo (Blue, MEP, Oficial, CCL, Mayorista, Cripto, Tarjeta, Solidario, Blend, Turista) |
-| Cotizaciones | tipo, fecha, valor en pesos |
+| Cotizaciones | tipo, fecha, compra y venta (en pesos) |
 | Precios web | libro, título, autor, precio, imagen, formas de pago, descripción, URL, fecha de extracción |
 
 ## Datos de ejemplo
@@ -164,6 +164,22 @@ uv run python -c "from book_manager.scraper.runner import obtener_catalogo, ejec
 
 # títulos escritos a mano
 uv run python -c "from book_manager.scraper.runner import obtener_catalogo, ejecutar_scraping; ejecutar_scraping(obtener_catalogo('manual', ['Cien años de soledad']))"
+```
+
+## Comparación de precios y alertas
+
+Al ejecutar el scraper se puede pasar un umbral de diferencia en pesos. Al
+terminar el crawl, el sistema compara el precio interno (USD, convertido a pesos
+con la última cotización oficial) contra el precio web de Cúspide y escribe
+`exports/alertas_precios.csv` con los libros cuya diferencia absoluta supera el
+umbral (columnas: isbn, titulo, precio_interno, precio_web, diferencia,
+fecha_extraccion). El archivo se escribe siempre, incluso sin alertas.
+
+```python
+from book_manager.scraper.runner import ejecutar_scraping, obtener_catalogo
+
+# umbral en pesos: alerta si la diferencia supera $5.000
+ejecutar_scraping(obtener_catalogo("base"), umbral=5000)
 ```
 
 ## Estructura

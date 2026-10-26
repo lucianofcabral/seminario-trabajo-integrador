@@ -566,7 +566,9 @@ class RepoPrecioWebSQL:
         with self._conexion.transaccion() as sesion:
             sesion.add(registro)
             sesion.flush()  # asigna el id antes de salir de la transacción
-            sesion.expunge(registro)  # evita el refresh posterior sobre un objeto detached
+            sesion.expunge(
+                registro
+            )  # evita el refresh posterior sobre un objeto detached
         return registro
 
     def leer_todos(self) -> list[m.PrecioWeb]:
@@ -596,3 +598,31 @@ class RepoPrecioWebSQL:
                 .order_by(m.PrecioWeb.fecha_extraccion.desc(), m.PrecioWeb.id.desc())
                 .limit(1)
             )
+
+    def leer_ultimas_por_libro(self) -> dict[str, m.PrecioWeb]:
+        """Último precio web de cada libro, indexado por ISBN.
+
+        Es la versión de `leer_ultima_por_libro` para todos los libros a la vez:
+        una sola consulta en lugar de una por ISBN. Si dos extracciones caen el
+        mismo día, gana la de id más alto (la más reciente).
+        """
+        ultima_fecha = (
+            select(
+                m.PrecioWeb.libro_id,
+                func.max(m.PrecioWeb.fecha_extraccion).label("fecha"),
+            )
+            .group_by(m.PrecioWeb.libro_id)
+            .subquery()
+        )
+        with self._conexion.crear_sesion() as sesion:
+            filas = sesion.execute(
+                select(m.PrecioWeb, m.Libro.isbn)
+                .join(m.Libro)
+                .join(
+                    ultima_fecha,
+                    (m.PrecioWeb.libro_id == ultima_fecha.c.libro_id)
+                    & (m.PrecioWeb.fecha_extraccion == ultima_fecha.c.fecha),
+                )
+                .order_by(m.PrecioWeb.id)
+            )
+            return {isbn: registro for registro, isbn in filas}

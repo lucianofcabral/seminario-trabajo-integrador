@@ -3,11 +3,15 @@
 El catálogo se puede tomar de la base propia, del CSV de libros o de una lista
 de títulos escrita a mano. En los tres casos el resultado es la misma lista de
 entradas `{"titulo": str, "libro_id": int | None}` que consume el spider.
+
+Si la ejecución recibe un umbral de diferencia de precios, al terminar el crawl
+se exporta el CSV de alertas (ver `ServicioComparacionPrecios`).
 """
 
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 from typing import Any, Literal
 
 from scrapy.crawler import CrawlerProcess
@@ -15,14 +19,19 @@ from sqlalchemy import select
 
 from book_manager.database.connection import ConexionDB
 from book_manager.models import models as m
-from book_manager.rutas import CSV_FOLDER_PATH
+from book_manager.rutas import CSV_FOLDER_PATH, EXPORTS_FOLDER_PATH
 from book_manager.scraper.settings import settings
 from book_manager.scraper.spiders.cuspide_spider import CuspideSpider
+from book_manager.services.services import (
+    ComparacionPrecio,
+    ServicioComparacionPrecios,
+)
 
 Origen = Literal["base", "csv", "manual"]
 Catalogo = list[dict[str, Any]]
 
 ARCHIVO_LIBROS = CSV_FOLDER_PATH / "libro.csv"
+ARCHIVO_ALERTAS = EXPORTS_FOLDER_PATH / "alertas_precios.csv"
 
 
 def obtener_catalogo(
@@ -58,9 +67,7 @@ def _catalogo_desde_base() -> Catalogo:
     """Lee todos los libros de la base propia."""
     with ConexionDB().crear_sesion() as sesion:
         filas = sesion.execute(select(m.Libro.id, m.Libro.titulo).order_by(m.Libro.id))
-        return [
-            {"titulo": titulo, "libro_id": libro_id} for libro_id, titulo in filas
-        ]
+        return [{"titulo": titulo, "libro_id": libro_id} for libro_id, titulo in filas]
 
 
 def _catalogo_desde_csv() -> Catalogo:
@@ -82,8 +89,33 @@ def _catalogo_desde_titulos(titulos: list[str]) -> Catalogo:
     ]
 
 
-def ejecutar_scraping(catalogo: Catalogo) -> None:
-    """Corre el spider de Cúspide sobre el catálogo recibido."""
+def ejecutar_scraping(
+    catalogo: Catalogo,
+    umbral: float | None = None,
+    ruta_alertas: Path | None = None,
+    conexion: ConexionDB | None = None,
+) -> list[ComparacionPrecio] | None:
+    """Corre el spider de Cúspide sobre el catálogo y exporta las alertas.
+
+    El umbral lo ingresa el usuario antes de cada ejecución (el menú lo pide en
+    el Ejercicio 07). Terminado el crawl, el pipeline ya guardó los precios web,
+    así que se comparan con el precio interno y se escribe el CSV de alertas.
+
+    Args:
+        catalogo: Libros a buscar, como los devuelve `obtener_catalogo`.
+        umbral: Diferencia en pesos a partir de la cual alertar. Si es None no
+            se compara ni se escribe el archivo.
+        ruta_alertas: Destino del CSV. Por defecto `exports/alertas_precios.csv`.
+        conexion: Base donde leer los precios. Por defecto, la del entorno.
+
+    Returns:
+        Las alertas exportadas, o None si la ejecución no pidió comparación.
+    """
     proceso = CrawlerProcess(settings)
     proceso.crawl(CuspideSpider, catalogo=catalogo)
     proceso.start()
+    if umbral is None:
+        return None
+    return ServicioComparacionPrecios(conexion=conexion).exportar_alertas_csv(
+        umbral, ruta_alertas or ARCHIVO_ALERTAS
+    )
