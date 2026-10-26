@@ -626,3 +626,29 @@ class RepoPrecioWebSQL:
                 .order_by(m.PrecioWeb.id)
             )
             return {isbn: registro for registro, isbn in filas}
+
+
+class RepoAuditoriaSQL:
+    """Registro de auditoría: solo se crea y se lee (historial).
+
+    Como `PrecioWeb`, la auditoría es un registro de observación generado
+    automáticamente: no se edita ni se borra por el usuario.
+    """
+
+    def __init__(self, conexion: ConexionDB) -> None:
+        self._conexion = conexion
+
+    def crear(self, registro: m.Auditoria) -> m.Auditoria:
+        """Guarda una entrada de auditoría y la devuelve con su id."""
+        with self._conexion.transaccion() as sesion:
+            sesion.add(registro)
+            sesion.flush()
+            sesion.expunge(registro)
+        return registro
+
+    def leer_todos(self) -> list[m.Auditoria]:
+        """Devuelve el historial completo, del más reciente al más antiguo."""
+        with self._conexion.crear_sesion() as sesion:
+            return list(
+                sesion.scalars(select(m.Auditoria).order_by(m.Auditoria.id.desc()))
+            )

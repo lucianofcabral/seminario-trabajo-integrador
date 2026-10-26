@@ -17,6 +17,7 @@ from openpyxl import Workbook
 
 from book_manager.database.connection import ConexionDB
 from book_manager.rutas import EXPORTS_FOLDER_PATH
+from book_manager.services.auditoria import auditar
 from book_manager.services.services import (
     ComparacionPrecio,
     ServicioComparacionPrecios,
@@ -52,6 +53,7 @@ class ServicioReporte:
             conexion=conexion
         )
 
+    @auditar("generar_reporte")
     def generar_reporte(self, ruta: Path = ARCHIVO_REPORTE) -> list[ComparacionPrecio]:
         """Escribe en `ruta` el reporte Excel y devuelve las comparaciones.
 

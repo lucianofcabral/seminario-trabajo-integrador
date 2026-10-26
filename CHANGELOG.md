@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 06]
+
+- Decorador `@auditar` (`services/auditoria.py`) que registra en la tabla `auditoria` cada operación con acción, fecha y detalles.
+- Modelo `Auditoria` (acción, fecha, detalles) + `RepoAuditoriaSQL` + `ServicioAuditoria` para leer el historial.
+- Aplicado a las mutaciones (`crear`, `actualizar`, `eliminar`; `modificar_stock`/`modificar_precio` pasan por `actualizar`) y a las acciones del sistema (`obtener_cotizaciones`, `ejecutar_scraping`, `generar_reporte`).
+- `configurar_auditoria(conexion)` se llama en `main.py`; sin configurar, el decorador es un no-op.
+- Tests sin red (7).
+
 ## [Ejercicio 05]
 
 - `ServicioReporte` (paquete `reportes/`): genera un reporte Excel con Libro, Precio interno, Precio web, Diferencia y Fecha de extracción.

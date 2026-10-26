@@ -8,6 +8,7 @@ from book_manager.models import models as m
 from book_manager.models.models import Base
 from book_manager.preload_data.preload_data import precargar_datos
 from book_manager.rutas import CSV_FOLDER_PATH, SQL_FOLDER_PATH
+from book_manager.services.auditoria import configurar_auditoria
 from book_manager.ui.console import main as console_main
 
 
@@ -36,6 +37,7 @@ def main(import_default_data: bool = False) -> None:
     if _base_vacia(conexion):
         poblar_base_de_datos(conexion, str(SQL_FOLDER_PATH))
 
+    configurar_auditoria(conexion)
     console_main(conexion)
 
 

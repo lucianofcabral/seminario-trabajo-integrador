@@ -22,6 +22,7 @@ from book_manager.models import models as m
 from book_manager.rutas import CSV_FOLDER_PATH, EXPORTS_FOLDER_PATH
 from book_manager.scraper.settings import settings
 from book_manager.scraper.spiders.cuspide_spider import CuspideSpider
+from book_manager.services.auditoria import auditar
 from book_manager.services.services import (
     ComparacionPrecio,
     ServicioComparacionPrecios,
@@ -89,6 +90,7 @@ def _catalogo_desde_titulos(titulos: list[str]) -> Catalogo:
     ]
 
 
+@auditar("ejecutar_scraping")
 def ejecutar_scraping(
     catalogo: Catalogo,
     umbral: float | None = None,

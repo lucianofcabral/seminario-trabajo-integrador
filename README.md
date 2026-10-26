@@ -132,6 +132,7 @@ por nombre, no por id.
 | Tipos de cotización | tipo (Blue, MEP, Oficial, CCL, Mayorista, Cripto, Tarjeta, Solidario, Blend, Turista) |
 | Cotizaciones | tipo, fecha, compra y venta (en pesos) |
 | Precios web | libro, título, autor, precio, imagen, formas de pago, descripción, URL, fecha de extracción |
+| Auditoría | acción, fecha, detalles |
 
 ## Datos de ejemplo
 
@@ -193,6 +194,22 @@ alertas, no filtra por umbral: es la vista completa para analizar los precios.
 from book_manager.reportes.reportes import ServicioReporte
 
 ServicioReporte().generar_reporte()  # escribe exports/reporte_precios.xlsx
+```
+
+## Auditoría de operaciones
+
+Cada operación que modifica el sistema (crear, actualizar, eliminar) y las
+acciones del sistema (descarga de cotizaciones, scraping y generación de
+reportes) quedan registradas en la tabla `auditoria` (acción, fecha, detalles)
+mediante el decorador `@auditar`. La auditoría se activa con
+`configurar_auditoria(conexion)` (lo hace `main.py` al arrancar); sin esa
+llamada, el decorador no escribe nada.
+
+```python
+from book_manager.services.auditoria import ServicioAuditoria
+
+for entrada in ServicioAuditoria().leer_todos():
+    print(entrada.fecha, entrada.accion, entrada.detalles)
 ```
 
 ## Estructura

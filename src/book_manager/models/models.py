@@ -159,3 +159,18 @@ class PrecioWeb(Base):
     fecha_extraccion: Mapped[date] = mapped_column(Date)
 
     libro: Mapped[Libro] = relationship()
+
+
+class Auditoria(Base):
+    """Registro de auditoría de las operaciones del sistema (Sprint 3, Ej 06).
+
+    Cada operación auditada deja una entrada con la acción ejecutada, la fecha
+    y un resumen de los detalles. El historial se consulta desde el menú.
+    """
+
+    __tablename__ = "auditoria"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    accion: Mapped[str] = mapped_column(String(200))
+    fecha: Mapped[date] = mapped_column(Date)
+    detalles: Mapped[str] = mapped_column(String(1000))

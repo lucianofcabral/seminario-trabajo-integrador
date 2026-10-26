@@ -47,6 +47,7 @@ from book_manager.repositories.sql_repository import (
     RepoStockSQL,
     RepoTipoCotizacionSQL,
 )
+from book_manager.services.auditoria import auditar
 from book_manager.utils import cargar_entorno, fecha_argentina
 
 cargar_entorno()
@@ -91,14 +92,17 @@ class ServicioBase[T: EntidadBase]:
     def leer_todos(self) -> list[T]:
         return self._repo.leer_todos()
 
+    @auditar
     def crear(self, entidad: T) -> T:
         self._validar(entidad)
         return self._repo.crear(entidad)
 
+    @auditar
     def actualizar(self, clave: object, entidad: T) -> T:
         self._validar(entidad)
         return self._repo.actualizar(clave, entidad)
 
+    @auditar
     def eliminar(self, clave: object) -> bool:
         self._antes_de_eliminar(clave)
         return self._repo.eliminar(clave)
@@ -323,6 +327,7 @@ class ServicioCotizacionDolar(ServicioBase[CotizacionDolar]):
                 f"No existe el tipo de cotización {cotizacion.tipo_cotizacion.tipo!r}."
             )
 
+    @auditar("obtener_cotizaciones")
     def obtener_cotizaciones(self) -> list[CotizacionDolar]:
         """Busca, descarga y registra las cotizaciones del dólar en la base.
 
