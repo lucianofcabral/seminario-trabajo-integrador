@@ -2,6 +2,12 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 07]
+
+- Menú con tres opciones nuevas: ejecutar scraping (pide el umbral y deja las alertas), generar reporte y ver historial de auditoría.
+- `_ejecutar_scraping`, `_generar_reporte` y `_ver_historial_auditoria` en la consola, con mensajes amigables cuando falta cotización o no hay auditoría.
+- Tests sin red (4).
+
 ## [Ejercicio 06]
 
 - Decorador `@auditar` (`services/auditoria.py`) que registra en la tabla `auditoria` cada operación con acción, fecha y detalles.

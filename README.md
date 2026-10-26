@@ -93,10 +93,11 @@ main(import_default_data=False)  # conserva la base; solo la puebla si está vac
 main(import_default_data=True)   # borra las tablas, regenera los datos de ejemplo y repuebla
 ```
 
-Al arrancar aparece el menú principal con las tablas y tres acciones: obtener
-cotizaciones de la API, ver la lista de precios bimonetaria (USD y pesos al tipo de
-dólar elegido) y exportar los precios a `exports/precios.csv` con una columna de
-pesos por cada tipo de dólar.
+Al arrancar aparece el menú principal con las tablas y las acciones globales:
+obtener cotizaciones de la API, ver la lista de precios bimonetaria (USD y pesos
+al tipo de dólar elegido), exportar los precios a `exports/precios.csv`, ejecutar
+el scraping de Cúspide (pide el umbral y deja `exports/alertas_precios.csv`),
+generar el reporte Excel y ver el historial de auditoría.
 
 Dentro de cada tabla: 
 - **Ver** — listar los registros.

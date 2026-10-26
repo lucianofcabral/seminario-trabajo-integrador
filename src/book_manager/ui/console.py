@@ -24,7 +24,10 @@ from book_manager.entities.entities import (
     Stock,
     TipoCotizacion,
 )
+from book_manager.reportes.reportes import ARCHIVO_REPORTE, ServicioReporte
 from book_manager.rutas import EXPORTS_FOLDER_PATH
+from book_manager.scraper.runner import ejecutar_scraping, obtener_catalogo
+from book_manager.services.auditoria import ServicioAuditoria
 from book_manager.services.services import (
     ServicioCotizacionDolar,
     ServicioEditorial,
@@ -622,6 +625,74 @@ def _exportar_precios_csv(
     print(f"Exportado a {ruta} (tipos de dólar: {tipos}).")
 
 
+def _pedir_umbral() -> float:
+    """Pide el umbral de diferencia en pesos (no negativo) para las alertas."""
+    while True:
+        raw = input("Umbral de diferencia en pesos: ").strip()
+        try:
+            valor = float(raw)
+        except ValueError:
+            print("Debe ser un número.")
+            continue
+        if valor < 0:
+            print("El umbral no puede ser negativo.")
+            continue
+        return valor
+
+
+def _ejecutar_scraping(conexion: ConexionDB) -> None:
+    """Corre el scraper de Cúspide sobre el catálogo y exporta las alertas."""
+    umbral = _pedir_umbral()
+    print("Ejecutando el scraper de Cúspide (puede tardar)...")
+    try:
+        alertas = ejecutar_scraping(
+            obtener_catalogo("base"), umbral=umbral, conexion=conexion
+        )
+    except ValueError as error:
+        print(f"No se pudo comparar: {error}")
+        return
+    cantidad = len(alertas) if alertas is not None else 0
+    print(f"Scraping terminado: {cantidad} alerta(s).")
+    print("Alertas en exports/alertas_precios.csv.")
+
+
+def _generar_reporte(conexion: ConexionDB) -> None:
+    """Genera el reporte Excel de precios."""
+    try:
+        comparaciones = ServicioReporte(conexion=conexion).generar_reporte()
+    except ValueError as error:
+        print(f"No se pudo generar el reporte: {error}")
+        return
+    print(f"Reporte generado en {ARCHIVO_REPORTE} ({len(comparaciones)} libro(s)).")
+
+
+def _ver_historial_auditoria(conexion: ConexionDB) -> None:
+    """Muestra el historial de operaciones auditadas (más reciente primero)."""
+    registros = ServicioAuditoria(conexion=conexion).leer_todos()
+    if not registros:
+        print("No hay operaciones auditadas todavía.")
+        return
+    filas = [
+        {
+            "fecha": registro.fecha.isoformat(),
+            "accion": registro.accion,
+            "detalles": registro.detalles,
+        }
+        for registro in registros
+    ]
+    print()
+    print(
+        render_tabla(
+            filas,
+            (
+                ("fecha", "Fecha"),
+                ("accion", "Acción"),
+                ("detalles", "Detalles"),
+            ),
+        )
+    )
+
+
 # --- menús ---
 
 
@@ -662,9 +733,12 @@ def _menu_principal(tablas: list[Tabla], conexion: ConexionDB) -> None:
         print(f"  {n + 1}. Obtener cotizaciones por API")
         print(f"  {n + 2}. Precios bimonetarios (USD y pesos por tipo de dólar)")
         print(f"  {n + 3}. Exportar precios a CSV")
+        print(f"  {n + 4}. Ejecutar scraping")
+        print(f"  {n + 5}. Generar reporte")
+        print(f"  {n + 6}. Ver historial de auditoría")
         print("  0. Salir")
 
-        opcion = _pedir_opcion(n + 3)
+        opcion = _pedir_opcion(n + 6)
         if opcion == 0:
             print("Chau.")
             return
@@ -676,6 +750,12 @@ def _menu_principal(tablas: list[Tabla], conexion: ConexionDB) -> None:
             _precios_bimonetarios(conexion)
         elif opcion == n + 3:
             _exportar_precios_csv(conexion)
+        elif opcion == n + 4:
+            _ejecutar_scraping(conexion)
+        elif opcion == n + 5:
+            _generar_reporte(conexion)
+        elif opcion == n + 6:
+            _ver_historial_auditoria(conexion)
 
 
 def main(conexion: ConexionDB | None = None) -> None:
