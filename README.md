@@ -182,6 +182,19 @@ from book_manager.scraper.runner import ejecutar_scraping, obtener_catalogo
 ejecutar_scraping(obtener_catalogo("base"), umbral=5000)
 ```
 
+## Reporte Excel de precios
+
+El servicio `ServicioReporte` genera un reporte en Excel (`exports/reporte_precios.xlsx`)
+con todos los libros que tienen precio web conocido y sus columnas: Libro,
+Precio interno, Precio web, Diferencia y Fecha de extracción. A diferencia de las
+alertas, no filtra por umbral: es la vista completa para analizar los precios.
+
+```python
+from book_manager.reportes.reportes import ServicioReporte
+
+ServicioReporte().generar_reporte()  # escribe exports/reporte_precios.xlsx
+```
+
 ## Estructura
 
 ```

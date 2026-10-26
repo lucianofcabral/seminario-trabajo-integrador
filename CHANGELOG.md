@@ -2,6 +2,14 @@
 
 Cambios del proyecto por ejercicio. El más reciente está primero.
 
+## [Ejercicio 05]
+
+- `ServicioReporte` (paquete `reportes/`): genera un reporte Excel con Libro, Precio interno, Precio web, Diferencia y Fecha de extracción.
+- Reutiliza `ServicioComparacionPrecios.comparar()`, así reporte y alertas usan el mismo criterio de conversión (cotización oficial de venta).
+- Incluye **todos** los libros con precio web conocido (a diferencia de las alertas, sin filtrar por umbral).
+- El archivo se escribe en `exports/reporte_precios.xlsx` con openpyxl (nueva dependencia).
+- Tests sin red (5).
+
 ## [Ejercicio 04]
 
 - Comparación del precio interno con el precio web de Cúspide: el interno (USD) se convierte a pesos con la última cotización oficial (`valor_venta`) y la diferencia es `precio_web - precio_interno`.

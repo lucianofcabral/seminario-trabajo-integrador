@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "babel>=2.12",
+    "openpyxl>=3.1.5",
     "psycopg[binary]>=3.2",
     "pycountry>=22.3",
     "pydantic[email]>=2.5",
